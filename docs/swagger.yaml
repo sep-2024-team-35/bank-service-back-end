@@ -1,0 +1,26 @@
+basePath: /api
+host: localhost:8080
+info:
+  contact: {}
+  description: Microservice simulating bank accounts and cards
+  title: Bank Service API
+  version: "1.0"
+paths:
+  /api/test:
+    get:
+      consumes:
+      - application/json
+      description: Returns Hello, world!
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Test endpoint
+      tags:
+      - Test
+swagger: "2.0"

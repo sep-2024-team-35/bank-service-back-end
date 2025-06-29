@@ -1,3 +1,8 @@
+// @title           Bank Service API
+// @version         1.0
+// @description     Microservice simulating bank accounts and cards
+// @host            localhost:8080
+// @BasePath        /api
 package main
 
 import (
@@ -15,8 +20,8 @@ func main() {
 	config.InitDB()
 
 	r := routes.SetupRouter()
-	if err := r.Run(":8080"); err != nil {
-		log.Fatalf("❌ Failed to start server: %v", err)
+	if err := r.RunTLS(":8443", "cert/cert.pem", "cert/key.pem"); err != nil {
+		log.Fatalf("❌ Failed to start HTTPS server: %v", err)
 	}
 
 }

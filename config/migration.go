@@ -19,13 +19,11 @@ func RunMigrations() {
 	_ = DB.Migrator().DropTable(
 		&models.Transaction{},
 		&models.PaymentRequest{},
-		&models.BankIdentifierNumber{},
 		&models.Account{},
 	)
 
 	err = DB.AutoMigrate(
 		&models.Account{},
-		&models.BankIdentifierNumber{},
 		&models.PaymentRequest{},
 		&models.Transaction{},
 	)

@@ -1,11 +1,81 @@
 basePath: /api
-host: localhost:8080
+definitions:
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  dto.MerchantRegistrationDto:
+    properties:
+      accountHolderName:
+        type: string
+      merchantId:
+        type: string
+      merchantPassword:
+        type: string
+    type: object
+  models.Account:
+    properties:
+      balance:
+        type: number
+      bankIdentifierCode:
+        type: string
+      cardHolderName:
+        type: string
+      expirationDate:
+        type: string
+      id:
+        type: string
+      merchantAccount:
+        type: boolean
+      merchantId:
+        type: string
+      merchantPassword:
+        type: string
+      number:
+        type: string
+      primaryAccountNumber:
+        type: string
+      securityCode:
+        type: string
+    type: object
+host: localhost:8443
 info:
   contact: {}
   description: Microservice simulating bank accounts and cards
   title: Bank Service API
   version: "1.0"
 paths:
+  /account/register:
+    post:
+      consumes:
+      - application/json
+      description: Accepts merchant registration data
+      parameters:
+      - description: Merchant registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.MerchantRegistrationDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Account'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Register a new merchant
+      tags:
+      - accounts
   /api/test:
     get:
       consumes:
@@ -23,4 +93,6 @@ paths:
       summary: Test endpoint
       tags:
       - Test
+schemes:
+- https
 swagger: "2.0"

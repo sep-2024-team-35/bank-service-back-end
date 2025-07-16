@@ -1,4 +1,7 @@
 {
+    "schemes": [
+        "https"
+    ],
     "swagger": "2.0",
     "info": {
         "description": "Microservice simulating bank accounts and cards",
@@ -6,9 +9,55 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "localhost:8080",
+    "host": "localhost:8443",
     "basePath": "/api",
     "paths": {
+        "/account/register": {
+            "post": {
+                "description": "Accepts merchant registration data",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Register a new merchant",
+                "parameters": [
+                    {
+                        "description": "Merchant registration data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.MerchantRegistrationDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Account"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/test": {
             "get": {
                 "description": "Returns Hello, world!",
@@ -32,6 +81,68 @@
                             }
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.MerchantRegistrationDto": {
+            "type": "object",
+            "properties": {
+                "accountHolderName": {
+                    "type": "string"
+                },
+                "merchantId": {
+                    "type": "string"
+                },
+                "merchantPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Account": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number"
+                },
+                "bankIdentifierCode": {
+                    "type": "string"
+                },
+                "cardHolderName": {
+                    "type": "string"
+                },
+                "expirationDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "merchantAccount": {
+                    "type": "boolean"
+                },
+                "merchantId": {
+                    "type": "string"
+                },
+                "merchantPassword": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "primaryAccountNumber": {
+                    "type": "string"
+                },
+                "securityCode": {
+                    "type": "string"
                 }
             }
         }

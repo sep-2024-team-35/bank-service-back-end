@@ -1,8 +1,10 @@
-// @title           Bank Service API
-// @version         1.0
-// @description     Microservice simulating bank accounts and cards
-// @host            localhost:8080
-// @BasePath        /api
+// @title Bank Service API
+// @version 1.0
+// @description Microservice simulating bank accounts and cards
+// @host localhost:8443
+// @BasePath /api
+// @schemes https
+
 package main
 
 import (
@@ -36,5 +38,4 @@ func main() {
 	if err := r.RunTLS(":8443", "cert/cert.pem", "cert/key.pem"); err != nil {
 		log.Fatalf("❌ Failed to start HTTPS server: %v", err)
 	}
-
 }

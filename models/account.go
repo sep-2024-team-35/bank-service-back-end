@@ -20,3 +20,7 @@ type Account struct {
 	SecurityCode         string          `gorm:"column:security_code" json:"securityCode,omitempty"`
 	Balance              decimal.Decimal `gorm:"type:numeric(15,2);column:balance;not null" json:"balance"`
 }
+
+func NewZeroBalance() decimal.Decimal {
+	return decimal.NewFromInt(0)
+}

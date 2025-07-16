@@ -15,6 +15,52 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/account/register": {
+            "post": {
+                "description": "Accepts merchant registration data",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Register a new merchant",
+                "parameters": [
+                    {
+                        "description": "Merchant registration data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.MerchantRegistrationDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Account"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/test": {
             "get": {
                 "description": "Returns Hello, world!",
@@ -41,15 +87,77 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "definitions": {
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.MerchantRegistrationDto": {
+            "type": "object",
+            "properties": {
+                "accountHolderName": {
+                    "type": "string"
+                },
+                "merchantId": {
+                    "type": "string"
+                },
+                "merchantPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Account": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number"
+                },
+                "bankIdentifierCode": {
+                    "type": "string"
+                },
+                "cardHolderName": {
+                    "type": "string"
+                },
+                "expirationDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "merchantAccount": {
+                    "type": "boolean"
+                },
+                "merchantId": {
+                    "type": "string"
+                },
+                "merchantPassword": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "primaryAccountNumber": {
+                    "type": "string"
+                },
+                "securityCode": {
+                    "type": "string"
+                }
+            }
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
+	Host:             "localhost:8443",
 	BasePath:         "/api",
-	Schemes:          []string{},
+	Schemes:          []string{"https"},
 	Title:            "Bank Service API",
 	Description:      "Microservice simulating bank accounts and cards",
 	InfoInstanceName: "swagger",

@@ -14,6 +14,34 @@ definitions:
       merchantPassword:
         type: string
     type: object
+  dto.PaymentRequestDto:
+    properties:
+      amount:
+        type: number
+      error_url:
+        type: string
+      failed_url:
+        type: string
+      merchant_id:
+        type: string
+      merchant_order_id:
+        type: string
+      merchant_password:
+        type: string
+      merchant_timestamp:
+        type: string
+      success_url:
+        type: string
+    required:
+    - amount
+    - error_url
+    - failed_url
+    - merchant_id
+    - merchant_order_id
+    - merchant_password
+    - merchant_timestamp
+    - success_url
+    type: object
   models.Account:
     properties:
       balance:
@@ -76,11 +104,18 @@ paths:
       summary: Register a new merchant
       tags:
       - accounts
-  /api/test:
-    get:
+  /payment/create/request:
+    post:
       consumes:
       - application/json
-      description: Returns Hello, world!
+      description: Accepts payment request data from acquirer
+      parameters:
+      - description: Payment request data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PaymentRequestDto'
       produces:
       - application/json
       responses:
@@ -90,9 +125,13 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Test endpoint
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a new payment request
       tags:
-      - Test
+      - payments
 schemes:
 - https
 swagger: "2.0"

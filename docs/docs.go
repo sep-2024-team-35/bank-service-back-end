@@ -61,9 +61,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/test": {
-            "get": {
-                "description": "Returns Hello, world!",
+        "/payment/create/request": {
+            "post": {
+                "description": "Accepts payment request data from acquirer",
                 "consumes": [
                     "application/json"
                 ],
@@ -71,9 +71,20 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Test"
+                    "payments"
                 ],
-                "summary": "Test endpoint",
+                "summary": "Create a new payment request",
+                "parameters": [
+                    {
+                        "description": "Payment request data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.PaymentRequestDto"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -82,6 +93,12 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -107,6 +124,45 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "merchantPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.PaymentRequestDto": {
+            "type": "object",
+            "required": [
+                "amount",
+                "error_url",
+                "failed_url",
+                "merchant_id",
+                "merchant_order_id",
+                "merchant_password",
+                "merchant_timestamp",
+                "success_url"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "error_url": {
+                    "type": "string"
+                },
+                "failed_url": {
+                    "type": "string"
+                },
+                "merchant_id": {
+                    "type": "string"
+                },
+                "merchant_order_id": {
+                    "type": "string"
+                },
+                "merchant_password": {
+                    "type": "string"
+                },
+                "merchant_timestamp": {
+                    "type": "string"
+                },
+                "success_url": {
                     "type": "string"
                 }
             }

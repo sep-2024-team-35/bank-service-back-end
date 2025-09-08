@@ -11,6 +11,7 @@ import (
 type AccountService interface {
 	GetMerchantAccount(req *models.PaymentRequest) (*models.Account, error)
 	RegisterNewMerchant(registrationDto *dto.MerchantRegistrationDto) (*models.Account, error)
+	isMerchantAccountExisting(merchantID, merchantPassword string) (bool, error)
 }
 
 type accountService struct {

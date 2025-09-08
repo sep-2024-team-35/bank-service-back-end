@@ -7,6 +7,7 @@ import (
 
 type PaymentRepository interface {
 	SaveRequest(request *models.PaymentRequest) (*models.PaymentRequest, error)
+	GetByID(id string) (*models.PaymentRequest, error)
 }
 
 type paymentRepository struct {
@@ -22,4 +23,15 @@ func (r *paymentRepository) SaveRequest(request *models.PaymentRequest) (*models
 		return nil, err
 	}
 	return request, nil
+}
+
+func (r *paymentRepository) GetByID(id string) (*models.PaymentRequest, error) {
+	var request models.PaymentRequest
+	if err := r.db.First(&request, "id = ?", id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &request, nil
 }

@@ -33,7 +33,7 @@ func SetupRouter() *gin.Engine {
 	accountHandler := handlers.NewAccountHandler(accountService)
 
 	paymentRepo := repositories.NewPaymentRepository(config.DB)
-	paymentService := services.NewPaymentService(paymentRepo)
+	paymentService := services.NewPaymentService(paymentRepo, accountService)
 	paymentHandler := handlers.NewPaymentHandler(paymentService)
 
 	api := r.Group("/api")

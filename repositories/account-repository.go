@@ -62,7 +62,7 @@ func (r *accountRepository) FindByPAN(pan string) (*models.Account, error) {
 
 func (r *accountRepository) FindByMerchantIDAndPassword(merchantID string, password string) (*models.Account, error) {
 	var account models.Account
-	if err := r.db.Where("merchant_id = ? AND password = ?", merchantID, password).First(&account).Error; err != nil {
+	if err := r.db.Where("merchant_id = ? AND merchant_password = ?", merchantID, password).First(&account).Error; err != nil {
 		return nil, err
 	}
 	return &account, nil

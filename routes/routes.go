@@ -28,18 +28,29 @@ func SetupRouter() *gin.Engine {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// === Repositories ===
 	accountRepo := repositories.NewAccountRepository(config.DB)
-	accountService := services.NewAccountService(accountRepo)
-	accountHandler := handlers.NewAccountHandler(accountService)
-
 	paymentRepo := repositories.NewPaymentRepository(config.DB)
-	paymentService := services.NewPaymentService(paymentRepo, accountService)
-	paymentHandler := handlers.NewPaymentHandler(paymentService)
+	transactionRepo := repositories.NewTransactionRepository(config.DB)
 
+	// === Services ===
+	accountService := services.NewAccountService(accountRepo)
+	paymentService := services.NewPaymentService(paymentRepo, accountService)
+	transactionService := services.NewTransactionService(transactionRepo)
+
+	// === Handlers ===
+	accountHandler := handlers.NewAccountHandler(accountService)
+	paymentHandler := handlers.NewPaymentHandler(paymentService, transactionService)
+
+	// === API rute ===
 	api := r.Group("/api")
 	{
+		// Account routes
 		api.POST("/account/register", accountHandler.RegisterNewMerchant)
+
+		// Payment routes
 		api.POST("/payment/create/request", paymentHandler.CreateRequest)
+
 	}
 
 	return r

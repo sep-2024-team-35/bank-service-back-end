@@ -1,4 +1,7 @@
 {
+    "schemes": [
+        "https"
+    ],
     "swagger": "2.0",
     "info": {
         "description": "Microservice simulating bank accounts and cards",
@@ -6,12 +9,12 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "localhost:8080",
+    "host": "localhost:8443",
     "basePath": "/api",
     "paths": {
-        "/api/test": {
-            "get": {
-                "description": "Returns Hello, world!",
+        "/account/register": {
+            "post": {
+                "description": "Accepts merchant registration data",
                 "consumes": [
                     "application/json"
                 ],
@@ -19,9 +22,66 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Test"
+                    "accounts"
                 ],
-                "summary": "Test endpoint",
+                "summary": "Register a new merchant",
+                "parameters": [
+                    {
+                        "description": "Merchant registration data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.MerchantRegistrationDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Account"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/payment/create/request": {
+            "post": {
+                "description": "Accepts payment request data from acquirer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Create a new payment request",
+                "parameters": [
+                    {
+                        "description": "Payment request data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.PaymentRequestDto"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -31,7 +91,114 @@
                                 "type": "string"
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.MerchantRegistrationDto": {
+            "type": "object",
+            "properties": {
+                "accountHolderName": {
+                    "type": "string"
+                },
+                "merchantId": {
+                    "type": "string"
+                },
+                "merchantPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.PaymentRequestDto": {
+            "type": "object",
+            "required": [
+                "amount",
+                "error_url",
+                "failed_url",
+                "merchant_id",
+                "merchant_order_id",
+                "merchant_password",
+                "merchant_timestamp",
+                "success_url"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "error_url": {
+                    "type": "string"
+                },
+                "failed_url": {
+                    "type": "string"
+                },
+                "merchant_id": {
+                    "type": "string"
+                },
+                "merchant_order_id": {
+                    "type": "string"
+                },
+                "merchant_password": {
+                    "type": "string"
+                },
+                "merchant_timestamp": {
+                    "type": "string"
+                },
+                "success_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Account": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number"
+                },
+                "bankIdentifierCode": {
+                    "type": "string"
+                },
+                "cardHolderName": {
+                    "type": "string"
+                },
+                "expirationDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "merchantAccount": {
+                    "type": "boolean"
+                },
+                "merchantId": {
+                    "type": "string"
+                },
+                "merchantPassword": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "primaryAccountNumber": {
+                    "type": "string"
+                },
+                "securityCode": {
+                    "type": "string"
                 }
             }
         }

@@ -17,31 +17,32 @@ COPY . .
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 
-# Build a statically linked, stripped binary
-# -s -w removes symbol/debug info to shrink binary
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+# Build binary (može sa CGO_ENABLED=1, da koristi TLS biblioteke)
+RUN CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o /app/bank-service ./cmd/main.go
 
 # ---------- Stage 2: Runtime ----------
-FROM alpine:3.18
+FROM debian:bookworm-slim
 
 LABEL maintainer="Luka Usljebrka <lukauslje13@gmail.com>" \
       app="eBankSEP-BE" \
       description="Bank backend service"
 
-# Install CA certs (needed for TLS connections) and tzdata
-RUN apk add --no-cache ca-certificates tzdata \
- && update-ca-certificates || true
+# Install TLS certificates and tzdata
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates tzdata postgresql-client && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for security
-RUN addgroup -S app && adduser -S -G app -u 10001 app
+# Create non-root user
+RUN groupadd -r app && useradd -r -g app -u 10001 app
 
 WORKDIR /app
 
 # copy binary from builder
 COPY --from=builder /app/bank-service /app/bank-service
 
-# copy seed scripts into image
+# copy seed scripts
 COPY --from=builder /src/scripts /app/scripts
 
 # make sure binary and scripts are owned by non-root user
@@ -50,7 +51,7 @@ RUN chown -R app:app /app
 # run as non-root
 USER app
 
-# sensible defaults; Azure will override PORT when binding
+# environment defaults
 ENV APP_ENV=acquirer \
     PORT=8080
 

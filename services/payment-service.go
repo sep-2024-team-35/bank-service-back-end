@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"github.com/google/uuid"
 	"github.com/sep-2024-team-35/bank-servce-back-end/dto"
 	"github.com/sep-2024-team-35/bank-servce-back-end/models"
 	"github.com/sep-2024-team-35/bank-servce-back-end/repositories"
@@ -33,6 +34,7 @@ func (s *paymentService) CreateRequest(dto dto.PaymentRequestDto) (*models.Payme
 	}
 
 	request := &models.PaymentRequest{
+		ID:                uuid.New(),
 		MerchantID:        dto.MerchantId,
 		MerchantPassword:  dto.MerchantPassword,
 		Amount:            dto.Amount,

@@ -1,43 +1,59 @@
-# Stage 1: Build Go Backend
-FROM golang:1.23 AS ebanksep-be-builder
+# ---------- Stage 1: Build ----------
+FROM golang:1.23 AS builder
+
 LABEL maintainer="Luka Usljebrka <lukauslje13@gmail.com>" \
-      project="eBankSEP-BE" \
-      description="Secure bank backend service with TLS, PostgreSQL, and environment-based config"
+      stage="builder"
 
-WORKDIR /app
+WORKDIR /src
 
-# Install dependencies
+# copy only module files first for Docker layer caching
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code and build binary
+# copy source
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o bank-service ./cmd/main.go
 
-# Stage 2: Runtime
-FROM alpine:latest AS ebanksep-be-server
+# allow building for different architectures if needed
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
+# Build a statically linked, stripped binary
+# -s -w removes symbol/debug info to shrink binary
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w" -o /app/bank-service ./cmd/main.go
+
+# ---------- Stage 2: Runtime ----------
+FROM alpine:3.18
+
 LABEL maintainer="Luka Usljebrka <lukauslje13@gmail.com>" \
       app="eBankSEP-BE" \
-      role="Bank Backend Server" \
-      version="1.0"
+      description="Bank backend service"
+
+# Install CA certs (needed for TLS connections) and tzdata
+RUN apk add --no-cache ca-certificates tzdata \
+ && update-ca-certificates || true
+
+# Create a non-root user for security
+RUN addgroup -S app && adduser -S -G app -u 10001 app
 
 WORKDIR /app
 
-# Copy binary
-COPY --from=ebanksep-be-builder /app/bank-service .
+# copy binary from builder
+COPY --from=builder /app/bank-service /app/bank-service
 
-# Copy TLS certificates
-COPY cert/cert.pem cert/key.pem ./cert/
+# copy seed scripts into image
+COPY --from=builder /src/scripts /app/scripts
 
-# Copy environment files
-COPY .env.acquirer .env.acquirer
-COPY .env.issuer .env.issuer
+# make sure binary and scripts are owned by non-root user
+RUN chown -R app:app /app
 
-# Set default environment (can be overridden)
-ENV APP_ENV=acquirer
+# run as non-root
+USER app
 
-# Expose HTTPS port
-EXPOSE 8443
+# sensible defaults; Azure will override PORT when binding
+ENV APP_ENV=acquirer \
+    PORT=8080
 
-# Run backend
-ENTRYPOINT ["./bank-service"]
+EXPOSE 8080
+
+ENTRYPOINT ["/app/bank-service"]

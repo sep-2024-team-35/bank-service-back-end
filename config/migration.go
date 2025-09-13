@@ -1,27 +1,27 @@
 package config
 
 import (
-	"github.com/sep-2024-team-35/bank-servce-back-end/models"
 	"log"
+
+	"github.com/sep-2024-team-35/bank-servce-back-end/models"
 )
 
 func RunMigrations() {
-	sqlDB, err := DB.DB()
+	_, err := DB.DB()
 	if err != nil {
 		log.Fatalf("❌ Failed to get raw DB connection: %v", err)
 	}
 
-	_, err = sqlDB.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`)
-	if err != nil {
-		log.Fatalf("❌ Failed to create uuid-ossp extension: %v", err)
-	}
+	// ❌ Uklonjen CREATE EXTENSION - nije dozvoljeno na Azure
 
+	// Drop tables ako postoje (opciono)
 	_ = DB.Migrator().DropTable(
 		&models.Transaction{},
 		&models.PaymentRequest{},
 		&models.Account{},
 	)
 
+	// Automatska migracija
 	err = DB.AutoMigrate(
 		&models.Account{},
 		&models.PaymentRequest{},
@@ -30,5 +30,6 @@ func RunMigrations() {
 	if err != nil {
 		log.Fatalf("❌ Failed to migrate database: %v", err)
 	}
+
 	log.Println("✅ Database migrated successfully.")
 }

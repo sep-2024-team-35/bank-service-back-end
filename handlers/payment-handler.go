@@ -68,7 +68,8 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 	log.Printf("[INFO] Payment request saved: ID=%s, Amount=%s", savedRequest.ID.String(), savedRequest.Amount.String())
 
 	// Open browser with frontend form
-	redirectURL := fmt.Sprintf("http://localhost:5173/card?paymentID=%s", savedRequest.ID.String())
+	redirectURL := fmt.Sprintf("https://ebanksep-fe.azurewebsites.net/card?paymentID=%s", savedRequest.ID.String())
+
 	openBrowser(redirectURL)
 	log.Printf("[INFO] Browser opened with URL: %s", redirectURL)
 

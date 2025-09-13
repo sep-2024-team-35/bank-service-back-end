@@ -7,7 +7,7 @@ import (
 )
 
 type PaymentRequest struct {
-	ID                uuid.UUID       `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ID                uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	MerchantID        string          `gorm:"column:merchant_id;not null" json:"merchantId"`
 	MerchantPassword  string          `gorm:"column:merchant_password;not null" json:"merchantPassword"`
 	Amount            decimal.Decimal `gorm:"type:numeric(15,2);column:amount;not null" json:"amount"`

@@ -57,29 +57,19 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 		return
 	}
 	log.Printf("[INFO] Received payment request: MerchantID=%s, OrderID=%s, Amount=%s",
-		paymentRequest.MerchantId, paymentRequest.MerchantOrderId, paymentRequest.Amount.String())
+		paymentRequest.MerchantID, paymentRequest.MerchantOrderId, paymentRequest.Amount.String())
 
 	savedRequest, err := h.paymentService.CreateRequest(paymentRequest)
 	if err != nil {
-		log.Printf("[ERROR] Failed to persist payment request for MerchantID=%s: %v", paymentRequest.MerchantId, err)
+		log.Printf("[ERROR] Failed to persist payment request for MerchantID=%s: %v", paymentRequest.MerchantID, err)
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create payment request"})
 		return
 	}
 	log.Printf("[INFO] Payment request saved: ID=%s, Amount=%s", savedRequest.ID.String(), savedRequest.Amount.String())
-
-	// Open browser with frontend form
-	redirectURL := fmt.Sprintf("http://localhost:5173/card?paymentID=%s", savedRequest.ID.String())
-	openBrowser(redirectURL)
-	log.Printf("[INFO] Browser opened with URL: %s", redirectURL)
-
-	// Add transaction
-	_, err = h.transactionService.AddTransactionAcquirer(savedRequest)
-	if err != nil {
-		log.Printf("[ERROR] Failed to create transaction for payment request ID=%s: %v", savedRequest.ID.String(), err)
-		c.JSON(http.StatusNotAcceptable, nil)
-		return
-	}
-	log.Printf("[INFO] Transaction successfully created for payment request ID=%s (Credit Card)", savedRequest.ID.String())
+	
+	redirectURL := fmt.Sprintf("https://ebanksep-fe.azurewebsites.net/card?paymentID=%s", savedRequest.ID.String())
+	log.Printf("[INFO] Redirecting client to URL: %s", redirectURL)
+	c.Redirect(http.StatusSeeOther, redirectURL)
 
 	c.JSON(http.StatusCreated, map[string]string{"paymentRequestID": savedRequest.ID.String()})
 }

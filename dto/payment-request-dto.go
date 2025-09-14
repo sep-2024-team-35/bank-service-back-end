@@ -6,7 +6,7 @@ import (
 )
 
 type PaymentRequestDto struct {
-	MerchantId        string          `json:"merchant_id" binding:"required"`
+	MerchantID        string          `json:"merchant_id" binding:"required"`
 	MerchantPassword  string          `json:"merchant_password" binding:"required"`
 	Amount            decimal.Decimal `json:"amount" binding:"required"`
 	MerchantOrderId   string          `json:"merchant_order_id" binding:"required"`

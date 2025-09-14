@@ -35,8 +35,8 @@ func SetupRouter() *gin.Engine {
 
 	// === Services ===
 	accountService := services.NewAccountService(accountRepo)
-	paymentService := services.NewPaymentService(paymentRepo, accountService)
 	transactionService := services.NewTransactionService(transactionRepo)
+	paymentService := services.NewPaymentService(paymentRepo, accountService, transactionRepo)
 
 	// === Handlers ===
 	accountHandler := handlers.NewAccountHandler(accountService)

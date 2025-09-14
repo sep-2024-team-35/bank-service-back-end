@@ -2,8 +2,10 @@ package repositories
 
 import (
 	"errors"
+	"fmt"
 	"github.com/sep-2024-team-35/bank-servce-back-end/models"
 	"gorm.io/gorm"
+	"log"
 )
 
 type AccountRepository interface {
@@ -61,9 +63,27 @@ func (r *accountRepository) FindByPAN(pan string) (*models.Account, error) {
 }
 
 func (r *accountRepository) FindByMerchantIDAndPassword(merchantID string, password string) (*models.Account, error) {
+	log.Printf("[Repo][FindByMerchantIDAndPassword] Called with merchantID=%s", merchantID)
+
+	if r.db == nil {
+		log.Printf("[Repo][FindByMerchantIDAndPassword][ERROR] Database connection is nil!")
+		return nil, fmt.Errorf("database connection is nil")
+	}
+
 	var account models.Account
-	if err := r.db.Where("merchant_id = ? AND merchant_password = ?", merchantID, password).First(&account).Error; err != nil {
+	err := r.db.Where("merchant_id = ? AND merchant_password = ?", merchantID, password).First(&account).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("[Repo][FindByMerchantIDAndPassword] No account found for merchantID=%s", merchantID)
+		return nil, nil
+	}
+	if err != nil {
+		log.Printf("[Repo][FindByMerchantIDAndPassword][ERROR] Query failed for merchantID=%s: %v", merchantID, err)
 		return nil, err
 	}
+
+	log.Printf("[Repo][FindByMerchantIDAndPassword] Account found: ID=%s, MerchantID=%s, Balance=%.2f",
+		account.ID.String(), account.MerchantID, account.Balance)
+
 	return &account, nil
 }

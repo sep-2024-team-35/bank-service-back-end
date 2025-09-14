@@ -11,6 +11,8 @@ import (
 type TransactionRepository interface {
 	Save(transaction *models.Transaction) (*models.Transaction, error)
 	SaveTransactional(tx *gorm.DB, transaction *models.Transaction) (*models.Transaction, error)
+	Update(transaction *models.Transaction) (*models.Transaction, error)
+	UpdateTransactional(tx *gorm.DB, transaction *models.Transaction) (*models.Transaction, error)
 	FindByPaymentRequestID(paymentRequestID uuid.UUID) (*models.Transaction, error)
 }
 
@@ -31,6 +33,22 @@ func (r *transactionRepository) Save(transaction *models.Transaction) (*models.T
 
 func (r *transactionRepository) SaveTransactional(tx *gorm.DB, transaction *models.Transaction) (*models.Transaction, error) {
 	if err := tx.Create(transaction).Error; err != nil {
+		return nil, err
+	}
+	return transaction, nil
+}
+
+func (r *transactionRepository) Update(transaction *models.Transaction) (*models.Transaction, error) {
+	if err := r.db.Save(transaction).Error; err != nil {
+		return nil, err
+	}
+	return transaction, nil
+}
+
+func (r *transactionRepository) UpdateTransactional(tx *gorm.DB, transaction *models.Transaction) (*models.Transaction, error) {
+	if err := tx.Model(&models.Transaction{}).
+		Where("id = ?", transaction.ID).
+		Updates(transaction).Error; err != nil {
 		return nil, err
 	}
 	return transaction, nil

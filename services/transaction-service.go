@@ -22,18 +22,17 @@ func (s *TransactionService) GetTransactionByPaymentRequestID(paymentRequestID u
 	return s.repo.FindByPaymentRequestID(paymentRequestID)
 }
 
-// AddTransactionAcquirer kreira novi transaction za acquirer
 func (s *TransactionService) AddTransactionAcquirer(paymentRequest *models.PaymentRequest) (*models.Transaction, error) {
 	tx := &models.Transaction{
-		Amount:            paymentRequest.Amount.InexactFloat64(),                // decimal.Decimal → float64
-		MerchantOrderID:   paymentRequest.MerchantOrderID,                        // string → string (ok)
-		MerchantTimestamp: paymentRequest.MerchantTimestamp.Format(time.RFC3339), // time.Time → string
+		Amount:            paymentRequest.Amount,
+		MerchantOrderID:   paymentRequest.MerchantOrderID,
+		MerchantTimestamp: paymentRequest.MerchantTimestamp.Format(time.RFC3339),
 		AcquirerOrderID:   generateRandomOrderID(),
-		AcquirerTimestamp: time.Now().Format(time.RFC3339), // time.Time → string
-		IssuerOrderID:     "",                              // prazno jer još nije poznato
-		IssuerTimestamp:   "",                              // prazno string polje
+		AcquirerTimestamp: time.Now().Format(time.RFC3339),
+		IssuerOrderID:     "",
+		IssuerTimestamp:   "",
 		Status:            "CREATED",
-		PaymentRequestID:  paymentRequest.ID, // sada možemo povezati transakciju sa request-om
+		PaymentRequestID:  paymentRequest.ID,
 	}
 
 	savedTx, err := s.repo.Save(tx)
@@ -45,14 +44,13 @@ func (s *TransactionService) AddTransactionAcquirer(paymentRequest *models.Payme
 	return savedTx, nil
 }
 
-// Helper funkcija za generisanje random order ID
 func generateRandomOrderID() string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	id := make([]byte, 16)
-	rand.Seed(time.Now().UnixNano()) // seed random generator
+	rand.Seed(time.Now().UnixNano())
 
 	for i := range id {
-		idx := rand.Intn(len(charset)) // nasumičan index u charset
+		idx := rand.Intn(len(charset))
 		id[i] = charset[idx]
 	}
 	return string(id)

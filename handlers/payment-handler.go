@@ -73,3 +73,47 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, map[string]string{"paymentRequestID": savedRequest.ID.String()})
 }
+
+// Pay godoc
+// @Summary Complete a payment
+// @Description Submits card details to complete a previously created payment request.
+// Updates the transaction status from CREATED to PAID (or FAILED if validation fails).
+// @Tags payments
+// @Accept json
+// @Produce json
+// @Param paymentID path string true "ID of the payment request"
+// @Param request body dto.CardDetailsDTO true "Card details for payment processing"
+// @Success 200 {object} map[string]string "Transaction completed successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid input data"
+// @Failure 404 {object} dto.ErrorResponse "Payment request not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /payment/{paymentID}/pay [patch]
+func (h *PaymentHandler) Pay(c *gin.Context) {
+	// 1. Uzmi paymentID iz path-a
+	paymentID := c.Param("paymentID")
+	if paymentID == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "paymentID is required"})
+		return
+	}
+
+	// 2. Bind-uj JSON body u CardDetailsDTO
+	var cardDetails dto.CardDetailsDTO
+	if err := c.ShouldBindJSON(&cardDetails); err != nil {
+		log.Printf("[ERROR] Invalid card details payload: %v", err)
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// 3. Pozovi servis
+	transaction, err := h.paymentService.Pay(cardDetails, paymentID)
+	if err != nil {
+		log.Printf("[ERROR] Failed to process payment for PaymentID=%s: %v", paymentID, err)
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// 4. Vrati odgovor
+	c.JSON(http.StatusOK, map[string]string{
+		"status": transaction.Status,
+	})
+}

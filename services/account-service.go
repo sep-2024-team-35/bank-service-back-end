@@ -10,7 +10,7 @@ import (
 
 type AccountService interface {
 	GetMerchantAccount(req *models.PaymentRequest) (*models.Account, error)
-	RegisterNewMerchant(registrationDto *dto.MerchantRegistrationDto) (*models.Account, error)
+	RegisterNewMerchant(registrationDto *dto.MerchantRegistrationDTO) (*models.Account, error)
 	isMerchantAccountExisting(merchantID, merchantPassword string) (bool, error)
 }
 
@@ -28,7 +28,7 @@ func (s *accountService) GetMerchantAccount(req *models.PaymentRequest) (*models
 	return s.accountRepo.FindByMerchantIDAndPassword(req.MerchantID, req.MerchantPassword)
 }
 
-func (s *accountService) RegisterNewMerchant(regDto *dto.MerchantRegistrationDto) (*models.Account, error) {
+func (s *accountService) RegisterNewMerchant(regDto *dto.MerchantRegistrationDTO) (*models.Account, error) {
 	if err := validateMerchantRegistrationInput(regDto); err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (s *accountService) RegisterNewMerchant(regDto *dto.MerchantRegistrationDto
 	return s.accountRepo.Save(account)
 }
 
-func validateMerchantRegistrationInput(regDto *dto.MerchantRegistrationDto) error {
+func validateMerchantRegistrationInput(regDto *dto.MerchantRegistrationDTO) error {
 	if regDto.AccountHolderName == "" || regDto.MerchantID == "" || regDto.MerchantPassword == "" {
 		return errors.New("all fields are required")
 	}
@@ -61,7 +61,7 @@ func (s *accountService) isMerchantAccountExisting(merchantID, merchantPassword 
 	return account != nil, nil
 }
 
-func createMerchantAccountFromDto(regDto *dto.MerchantRegistrationDto) *models.Account {
+func createMerchantAccountFromDto(regDto *dto.MerchantRegistrationDTO) *models.Account {
 	return &models.Account{
 		ID:               uuid.New(),
 		CardHolderName:   regDto.AccountHolderName,

@@ -22,13 +22,13 @@ func NewAccountHandler(service services.AccountService) *AccountHandler {
 // @Tags accounts
 // @Accept json
 // @Produce json
-// @Param request body dto.MerchantRegistrationDto true "Merchant registration data" example({"accountHolderName":"Petar Petrovic","merchantId":"merchant-123","merchantPassword":"securePass123"})
+// @Param request body dto.MerchantRegistrationDTO true "Merchant registration data" example({"accountHolderName":"Petar Petrovic","merchantId":"merchant-123","merchantPassword":"securePass123"})
 // @Success 201 {object} models.Account
 // @Failure 400 {object} dto.ErrorResponse
 // @Failure 500 {object} dto.ErrorResponse
 // @Router /account/register [post]
 func (h *AccountHandler) RegisterNewMerchant(c *gin.Context) {
-	var merchantDto dto.MerchantRegistrationDto
+	var merchantDto dto.MerchantRegistrationDTO
 	if err := c.ShouldBindJSON(&merchantDto); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return

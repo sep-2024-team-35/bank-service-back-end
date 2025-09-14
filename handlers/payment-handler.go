@@ -44,12 +44,12 @@ func NewPaymentHandler(paymentService services.PaymentService, transactionServic
 // @Tags payments
 // @Accept json
 // @Produce json
-// @Param request body dto.PaymentRequestDto true "Payment request data"
+// @Param request body dto.PaymentRequestDTO true "Payment request data"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} dto.ErrorResponse
 // @Router /payment/create/request [post]
 func (h *PaymentHandler) CreateRequest(c *gin.Context) {
-	var paymentRequest dto.PaymentRequestDto
+	var paymentRequest dto.PaymentRequestDTO
 
 	if err := c.ShouldBindJSON(&paymentRequest); err != nil {
 		log.Printf("[ERROR] Invalid payment request payload: %v", err)
@@ -66,7 +66,7 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 		return
 	}
 	log.Printf("[INFO] Payment request saved: ID=%s, Amount=%s", savedRequest.ID.String(), savedRequest.Amount.String())
-	
+
 	redirectURL := fmt.Sprintf("https://ebanksep-fe.azurewebsites.net/card?paymentID=%s", savedRequest.ID.String())
 	log.Printf("[INFO] Redirecting client to URL: %s", redirectURL)
 	c.Redirect(http.StatusSeeOther, redirectURL)

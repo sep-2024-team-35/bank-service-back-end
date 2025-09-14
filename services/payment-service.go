@@ -12,7 +12,7 @@ import (
 )
 
 type PaymentService interface {
-	CreateRequest(dto dto.PaymentRequestDto) (*models.PaymentRequest, error)
+	CreateRequest(dto dto.PaymentRequestDTO) (*models.PaymentRequest, error)
 }
 
 type paymentService struct {
@@ -29,7 +29,7 @@ func NewPaymentService(repo repositories.PaymentRepository, accSvc AccountServic
 	}
 }
 
-func (s *paymentService) CreateRequest(requestDto dto.PaymentRequestDto) (*models.PaymentRequest, error) {
+func (s *paymentService) CreateRequest(requestDto dto.PaymentRequestDTO) (*models.PaymentRequest, error) {
 	exists, err := s.accountService.isMerchantAccountExisting(requestDto.MerchantID, requestDto.MerchantPassword)
 	if err != nil {
 		return nil, err

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type PaymentRequestDto struct {
+type PaymentRequestDTO struct {
 	MerchantID        string          `json:"merchant_id" binding:"required"`
 	MerchantPassword  string          `json:"merchant_password" binding:"required"`
 	Amount            decimal.Decimal `json:"amount" binding:"required"`

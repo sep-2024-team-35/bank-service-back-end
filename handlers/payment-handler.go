@@ -70,7 +70,7 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 	redirectURL := fmt.Sprintf("https://ebanksep-fe.azurewebsites.net/card?paymentID=%s", savedRequest.ID.String())
 	log.Printf("[INFO] Redirecting client to URL: %s", redirectURL)
 	c.Redirect(http.StatusSeeOther, redirectURL)
-
+	// TODO: ADD CardForm URL
 	c.JSON(http.StatusCreated, map[string]string{"paymentRequestID": savedRequest.ID.String()})
 }
 

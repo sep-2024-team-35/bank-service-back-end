@@ -18,6 +18,7 @@ func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
+		// TODO: correct origins and methods
 		AllowOrigins:     []string{"https://localhost:8443", "http://localhost:8080", "http://localhost:3000", "https://ebanksep-fe.azurewebsites.net"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},

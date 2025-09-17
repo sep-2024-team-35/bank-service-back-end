@@ -1,13 +1,18 @@
 package services
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/sep-2024-team-35/bank-servce-back-end/dto"
 	"github.com/sep-2024-team-35/bank-servce-back-end/models"
 	"github.com/sep-2024-team-35/bank-servce-back-end/repositories"
 	"gorm.io/gorm"
 	"log"
+	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -66,6 +71,7 @@ func (s *paymentService) CreateRequest(requestDto dto.PaymentRequestDTO) (*model
 }
 
 func (s *paymentService) Pay(cardDetailsDTO dto.CardDetailsDTO, paymentRequestID string) (*models.Transaction, error) {
+	log.Printf("[DEBUG] Request DTO: %+v", cardDetailsDTO.PrimaryAccountNumber)
 	issuerAccount, err := s.accountService.FindAccountByPAN(cardDetailsDTO.PrimaryAccountNumber)
 	if err != nil {
 		return nil, err
@@ -86,7 +92,7 @@ func (s *paymentService) Pay(cardDetailsDTO dto.CardDetailsDTO, paymentRequestID
 			return nil, err
 		}
 	} else {
-		if err := s.processInterbankTransaction(transaction); err != nil {
+		if err := s.processInterbankTransaction(transaction, cardDetailsDTO.PrimaryAccountNumber); err != nil {
 			return nil, err
 		}
 	}
@@ -164,31 +170,78 @@ func (s *paymentService) processIntrabankTransaction(
 	return nil
 }
 
-//func (s *paymentService) processIntrabankTransaction(issuerAccount *models.Account, paymentRequest *models.PaymentRequest, transaction *models.Transaction) error {
-//	acquirerAccount, err := s.accountService.GetMerchantAccount(paymentRequest.MerchantID, paymentRequest.MerchantPassword)
-//	if err != nil {
-//		return err
-//	}
-//
-//	if !issuerAccount.Balance.GreaterThanOrEqual(transaction.Amount) {
-//		return errors.New("insufficient funds on issuer account")
-//	}
-//
-//	issuerAccount.Balance = issuerAccount.Balance.Sub(transaction.Amount)
-//
-//	// 4. Uvećaj balans merchant account-a
-//	acquirerAccount.Balance = acquirerAccount.Balance.Add(transaction.Amount)
-//
-//	// TODO: implement method
-//}
-
 // Different banks
-func (s *paymentService) processInterbankTransaction(transaction *models.Transaction) error {
-	// TODO: implement method
+func (s *paymentService) processInterbankTransaction(transaction *models.Transaction, issuerPAN string) error {
+	log.Printf("[DEBUG] Starting processInterbankTransaction for transaction ID: %d, PAN: %s", transaction.ID, issuerPAN)
 
-	panic("implement me")
+	request := dto.ExternalTransactionRequestDTO{
+		AcquirerOrderID:      strconv.Itoa(transaction.ID), // TODO: promeni u UUID
+		AcquirerTimestamp:    time.Now().Format(time.RFC3339),
+		PrimaryAccountNumber: issuerPAN,
+		Amount:               transaction.Amount,
+		Currency:             "RSD",
+	}
+
+	log.Printf("[DEBUG] Request DTO: %+v", request)
+
+	payload, err := json.Marshal(request)
+	if err != nil {
+		log.Printf("[ERROR] Failed to marshal request: %v", err)
+		transaction.Status = "ERROR"
+		if _, repoErr := s.transactionRepository.Update(transaction); repoErr != nil {
+			log.Printf("[ERROR] Failed to update transaction status: %v", repoErr)
+		}
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	log.Printf("[DEBUG] JSON payload: %s", string(payload))
+
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	resp, err := client.Post("http://pcc-container:8081/api/transactions", "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		log.Printf("[ERROR] HTTP POST failed: %v", err)
+		transaction.Status = "ERROR"
+		if _, repoErr := s.transactionRepository.Update(transaction); repoErr != nil {
+			return fmt.Errorf("failed to contact PCC: %w; also failed to update transaction: %v", err, repoErr)
+		}
+		return fmt.Errorf("failed to contact PCC: %w", err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Printf("[ERROR] Failed to close response body: %v", cerr)
+		}
+	}()
+
+	log.Printf("[DEBUG] PCC response status code: %d", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		transaction.Status = "FAILED"
+		if _, repoErr := s.transactionRepository.Update(transaction); repoErr != nil {
+			log.Printf("[ERROR] Failed to update transaction status to FAILED: %v", repoErr)
+		}
+		return fmt.Errorf("PCC responded with status %d", resp.StatusCode)
+	}
+
+	var response struct {
+		AcquirerOrderID string `json:"acquirerOrderId"`
+		Status          string `json:"status"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		log.Printf("[ERROR] Failed to decode PCC response: %v", err)
+		transaction.Status = "ERROR"
+		if _, repoErr := s.transactionRepository.Update(transaction); repoErr != nil {
+			log.Printf("[ERROR] Failed to update transaction status after decode error: %v", repoErr)
+		}
+		return fmt.Errorf("failed to decode PCC response: %w", err)
+	}
+
+	log.Printf("[DEBUG] PCC response: %+v", response)
+
+	// TODO: implement transaction status update based on response.Status
+	log.Printf("[DEBUG] processInterbankTransaction completed for transaction ID: %d", transaction.ID)
+	return nil
 }
-
 func (s *paymentService) validateMerchant(merchantID, merchantPassword string) error {
 	exists, err := s.accountService.isMerchantAccountExisting(merchantID, merchantPassword)
 	if err != nil {

@@ -6,16 +6,31 @@ import (
 	"github.com/sep-2024-team-35/bank-servce-back-end/dto"
 	"github.com/sep-2024-team-35/bank-servce-back-end/models"
 	"github.com/sep-2024-team-35/bank-servce-back-end/repositories"
+	"gorm.io/gorm"
 )
 
 type AccountService interface {
-	GetMerchantAccount(req *models.PaymentRequest) (*models.Account, error)
+	UpdateTransactional(tx *gorm.DB, account *models.Account) (*models.Account, error)
+	GetMerchantAccount(ID string, password string) (*models.Account, error)
 	RegisterNewMerchant(registrationDto *dto.MerchantRegistrationDTO) (*models.Account, error)
 	isMerchantAccountExisting(merchantID, merchantPassword string) (bool, error)
+	FindAccountByPAN(pan string) (*models.Account, error)
+	DB() *gorm.DB
 }
 
 type accountService struct {
 	accountRepo repositories.AccountRepository
+}
+
+func (s *accountService) UpdateTransactional(tx *gorm.DB, account *models.Account) (*models.Account, error) {
+	if tx == nil {
+		return nil, errors.New("transaction object cannot be nil")
+	}
+	return s.accountRepo.UpdateTransactional(tx, account)
+}
+
+func (s *accountService) FindAccountByPAN(pan string) (*models.Account, error) {
+	return s.accountRepo.FindByPAN(pan)
 }
 
 func NewAccountService(repo repositories.AccountRepository) AccountService {
@@ -24,8 +39,8 @@ func NewAccountService(repo repositories.AccountRepository) AccountService {
 	}
 }
 
-func (s *accountService) GetMerchantAccount(req *models.PaymentRequest) (*models.Account, error) {
-	return s.accountRepo.FindByMerchantIDAndPassword(req.MerchantID, req.MerchantPassword)
+func (s *accountService) GetMerchantAccount(ID string, password string) (*models.Account, error) {
+	return s.accountRepo.FindByMerchantIDAndPassword(ID, password)
 }
 
 func (s *accountService) RegisterNewMerchant(regDto *dto.MerchantRegistrationDTO) (*models.Account, error) {
@@ -70,4 +85,8 @@ func createMerchantAccountFromDto(regDto *dto.MerchantRegistrationDTO) *models.A
 		MerchantAccount:  true,
 		Balance:          models.NewZeroBalance(),
 	}
+}
+
+func (s *accountService) DB() *gorm.DB {
+	return s.accountRepo.DB()
 }

@@ -51,8 +51,11 @@ RUN chown -R app:app /app
 # run as non-root
 USER app
 
-# environment defaults
-ENV APP_ENV=acquirer \
+# build-time argument with default
+ARG APP_ENV=acquirer
+
+# runtime env
+ENV APP_ENV=${APP_ENV} \
     PORT=8080
 
 EXPOSE 8080

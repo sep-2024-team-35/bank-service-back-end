@@ -18,8 +18,9 @@ func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://localhost:8443", "http://localhost:8080", "http://localhost:3000"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		// TODO: correct origins and methods
+		AllowOrigins:     []string{"https://localhost:8443", "http://localhost:8080", "http://localhost:3000", "https://ebanksep-fe.azurewebsites.net"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
@@ -42,7 +43,7 @@ func SetupRouter() *gin.Engine {
 	accountHandler := handlers.NewAccountHandler(accountService)
 	paymentHandler := handlers.NewPaymentHandler(paymentService, transactionService)
 
-	// === API rute ===
+	// === API routes ===
 	api := r.Group("/api")
 	{
 		// Account routes
@@ -50,7 +51,8 @@ func SetupRouter() *gin.Engine {
 
 		// Payment routes
 		api.POST("/payment/create/request", paymentHandler.CreateRequest)
-
+		api.PATCH("/payment/:paymentID/pay", paymentHandler.Pay)
+		api.POST("/payment/external-pay", paymentHandler.ExternalPay)
 	}
 
 	return r

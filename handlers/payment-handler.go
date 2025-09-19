@@ -70,6 +70,93 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 	redirectURL := fmt.Sprintf("https://ebanksep-fe.azurewebsites.net/card?paymentID=%s", savedRequest.ID.String())
 	log.Printf("[INFO] Redirecting client to URL: %s", redirectURL)
 	c.Redirect(http.StatusSeeOther, redirectURL)
-
+	// TODO: ADD CardForm URL
 	c.JSON(http.StatusCreated, map[string]string{"paymentRequestID": savedRequest.ID.String()})
+}
+
+// Pay godoc
+// @Summary Complete a payment
+// @Description Submits card details to complete a previously created payment request.
+// Updates the transaction status from CREATED to PAID (or FAILED if validation fails).
+// @Tags payments
+// @Accept json
+// @Produce json
+// @Param paymentID path string true "ID of the payment request"
+// @Param request body dto.CardDetailsDTO true "Card details for payment processing"
+// @Success 200 {object} map[string]string "Transaction completed successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid input data"
+// @Failure 404 {object} dto.ErrorResponse "Payment request not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /payment/{paymentID}/pay [patch]
+func (h *PaymentHandler) Pay(c *gin.Context) {
+	// 1. Uzmi paymentID iz path-a
+	paymentID := c.Param("paymentID")
+	if paymentID == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "paymentID is required"})
+		return
+	}
+
+	// 2. Bind-uj JSON body u CardDetailsDTO
+	var cardDetails dto.CardDetailsDTO
+	if err := c.ShouldBindJSON(&cardDetails); err != nil {
+		log.Printf("[ERROR] Invalid card details payload: %v", err)
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// 3. Pozovi servis
+	transaction, err := h.paymentService.Pay(cardDetails, paymentID)
+	if err != nil {
+		log.Printf("[ERROR] Failed to process payment for PaymentID=%s: %v", paymentID, err)
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// 4. Vrati odgovor
+	c.JSON(http.StatusOK, map[string]string{
+		"status": transaction.Status,
+	})
+}
+
+// ExternalPay godoc
+// @Summary Process external payment from PCC
+// @Description Validates issuer account based on PAN, checks available funds, and reserves amount if sufficient.
+// This endpoint is called by the Payment Card Center (PCC) during interbank transaction routing.
+// If the issuer account has enough balance, the amount is reserved and transaction is marked as completed.
+// Otherwise, the transaction fails with appropriate status.
+// @Tags payments
+// @Accept json
+// @Produce json
+// @Param request body dto.ExternalTransactionRequestDTO true "External payment request from PCC"
+// @Success 200 {object} map[string]string "Transaction successfully processed and funds reserved"
+// @Failure 400 {object} dto.ErrorResponse "Invalid input data or malformed request"
+// @Failure 404 {object} dto.ErrorResponse "Issuer account not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error during transaction processing"
+// @Router /payment/external-pay [post]
+func (h *PaymentHandler) ExternalPay(c *gin.Context) {
+	var externalRequest dto.ExternalTransactionRequestDTO
+
+	// 1. Bind JSON payload
+	if err := c.ShouldBindJSON(&externalRequest); err != nil {
+		log.Printf("[ERROR] Invalid external payment payload: %v", err)
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request format"})
+		return
+	}
+
+	// 2. Pozovi servis
+	response, err := h.paymentService.ExternalPay(externalRequest)
+	if err != nil {
+		switch response.Status {
+		case "FAILED":
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
+		case "ERROR":
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Unexpected error"})
+		}
+		return
+	}
+
+	// 3. Vrati uspešan odgovor
+	c.JSON(http.StatusOK, response)
 }

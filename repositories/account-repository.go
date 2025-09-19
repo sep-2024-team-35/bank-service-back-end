@@ -11,9 +11,11 @@ import (
 type AccountRepository interface {
 	Save(account *models.Account) (*models.Account, error)
 	Update(account *models.Account) (*models.Account, error)
+	UpdateTransactional(tx *gorm.DB, account *models.Account) (*models.Account, error)
 	FindByMerchantID(merchantID string) (*models.Account, error)
 	FindByPAN(pan string) (*models.Account, error)
 	FindByMerchantIDAndPassword(merchantID string, password string) (*models.Account, error)
+	DB() *gorm.DB
 }
 
 type accountRepository struct {
@@ -38,6 +40,20 @@ func (r *accountRepository) Update(account *models.Account) (*models.Account, er
 	return account, nil
 }
 
+func (r *accountRepository) UpdateTransactional(tx *gorm.DB, account *models.Account) (*models.Account, error) {
+	if tx == nil {
+		return nil, errors.New("transaction object cannot be nil")
+	}
+
+	if err := tx.Model(&models.Account{}).
+		Where("id = ?", account.ID).
+		Updates(account).Error; err != nil {
+		return nil, err
+	}
+
+	return account, nil
+}
+
 func (r *accountRepository) FindByMerchantID(merchantID string) (*models.Account, error) {
 	var account models.Account
 	err := r.db.First(&account, "merchant_id = ?", merchantID).Error
@@ -52,7 +68,7 @@ func (r *accountRepository) FindByMerchantID(merchantID string) (*models.Account
 
 func (r *accountRepository) FindByPAN(pan string) (*models.Account, error) {
 	var account models.Account
-	err := r.db.First(&account, "pan = ?", pan).Error
+	err := r.db.First(&account, "primary_account_number = ?", pan).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -86,4 +102,8 @@ func (r *accountRepository) FindByMerchantIDAndPassword(merchantID string, passw
 		account.ID.String(), account.MerchantID, account.Balance)
 
 	return &account, nil
+}
+
+func (r *accountRepository) DB() *gorm.DB {
+	return r.db
 }

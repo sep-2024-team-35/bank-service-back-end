@@ -68,7 +68,7 @@ func (r *accountRepository) FindByMerchantID(merchantID string) (*models.Account
 
 func (r *accountRepository) FindByPAN(pan string) (*models.Account, error) {
 	var account models.Account
-	err := r.db.First(&account, "pan = ?", pan).Error
+	err := r.db.First(&account, "primary_account_number = ?", pan).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

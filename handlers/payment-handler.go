@@ -117,3 +117,46 @@ func (h *PaymentHandler) Pay(c *gin.Context) {
 		"status": transaction.Status,
 	})
 }
+
+// ExternalPay godoc
+// @Summary Process external payment from PCC
+// @Description Validates issuer account based on PAN, checks available funds, and reserves amount if sufficient.
+// This endpoint is called by the Payment Card Center (PCC) during interbank transaction routing.
+// If the issuer account has enough balance, the amount is reserved and transaction is marked as completed.
+// Otherwise, the transaction fails with appropriate status.
+// @Tags payments
+// @Accept json
+// @Produce json
+// @Param request body dto.ExternalTransactionRequestDTO true "External payment request from PCC"
+// @Success 200 {object} map[string]string "Transaction successfully processed and funds reserved"
+// @Failure 400 {object} dto.ErrorResponse "Invalid input data or malformed request"
+// @Failure 404 {object} dto.ErrorResponse "Issuer account not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error during transaction processing"
+// @Router /payment/external-pay [post]
+func (h *PaymentHandler) ExternalPay(c *gin.Context) {
+	var externalRequest dto.ExternalTransactionRequestDTO
+
+	// 1. Bind JSON payload
+	if err := c.ShouldBindJSON(&externalRequest); err != nil {
+		log.Printf("[ERROR] Invalid external payment payload: %v", err)
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request format"})
+		return
+	}
+
+	// 2. Pozovi servis
+	response, err := h.paymentService.ExternalPay(externalRequest)
+	if err != nil {
+		switch response.Status {
+		case "FAILED":
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
+		case "ERROR":
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Unexpected error"})
+		}
+		return
+	}
+
+	// 3. Vrati uspešan odgovor
+	c.JSON(http.StatusOK, response)
+}

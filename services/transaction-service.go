@@ -24,6 +24,7 @@ func (s *TransactionService) GetTransactionByPaymentRequestID(paymentRequestID u
 
 func (s *TransactionService) AddTransactionAcquirer(paymentRequest *models.PaymentRequest) (*models.Transaction, error) {
 	tx := &models.Transaction{
+		ID:                uuid.New(),
 		Amount:            paymentRequest.Amount,
 		MerchantOrderID:   paymentRequest.MerchantOrderID,
 		MerchantTimestamp: paymentRequest.MerchantTimestamp.Format(time.RFC3339),
@@ -54,34 +55,4 @@ func generateRandomOrderID() string {
 		id[i] = charset[idx]
 	}
 	return string(id)
-}
-
-func (s *TransactionService) SuccessTransaction(tx *models.Transaction) (*models.Transaction, error) {
-	tx.Status = "SUCCESS"
-	savedTx, err := s.repo.Save(tx)
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("Transaction %d marked as SUCCESS", tx.ID)
-	return savedTx, nil
-}
-
-func (s *TransactionService) FailTransaction(tx *models.Transaction) (*models.Transaction, error) {
-	tx.Status = "FAILED"
-	savedTx, err := s.repo.Save(tx)
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("Transaction %d marked as FAILED", tx.ID)
-	return savedTx, nil
-}
-
-func (s *TransactionService) ErrorTransaction(tx *models.Transaction) (*models.Transaction, error) {
-	tx.Status = "ERROR"
-	savedTx, err := s.repo.Save(tx)
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("Transaction %d marked as ERROR", tx.ID)
-	return savedTx, nil
 }

@@ -43,7 +43,7 @@ func SetupRouter() *gin.Engine {
 	accountHandler := handlers.NewAccountHandler(accountService)
 	paymentHandler := handlers.NewPaymentHandler(paymentService, transactionService)
 
-	// === API rute ===
+	// === API routes ===
 	api := r.Group("/api")
 	{
 		// Account routes
@@ -52,7 +52,7 @@ func SetupRouter() *gin.Engine {
 		// Payment routes
 		api.POST("/payment/create/request", paymentHandler.CreateRequest)
 		api.PATCH("/payment/:paymentID/pay", paymentHandler.Pay)
-
+		api.POST("/payment/external-pay", paymentHandler.ExternalPay)
 	}
 
 	return r

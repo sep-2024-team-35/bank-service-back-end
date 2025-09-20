@@ -67,10 +67,11 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 	}
 	log.Printf("[INFO] Payment request saved: ID=%s, Amount=%s", savedRequest.ID.String(), savedRequest.Amount.String())
 
+	// TODO: ADD CardForm URL ---> is everything ok?
 	redirectURL := fmt.Sprintf("https://ebanksep-fe.azurewebsites.net/card?paymentID=%s", savedRequest.ID.String())
 	log.Printf("[INFO] Redirecting client to URL: %s", redirectURL)
 	c.Redirect(http.StatusSeeOther, redirectURL)
-	// TODO: ADD CardForm URL
+
 	c.JSON(http.StatusCreated, map[string]string{"paymentRequestID": savedRequest.ID.String()})
 }
 
@@ -89,14 +90,12 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /payment/{paymentID}/pay [patch]
 func (h *PaymentHandler) Pay(c *gin.Context) {
-	// 1. Uzmi paymentID iz path-a
 	paymentID := c.Param("paymentID")
 	if paymentID == "" {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "paymentID is required"})
 		return
 	}
 
-	// 2. Bind-uj JSON body u CardDetailsDTO
 	var cardDetails dto.CardDetailsDTO
 	if err := c.ShouldBindJSON(&cardDetails); err != nil {
 		log.Printf("[ERROR] Invalid card details payload: %v", err)
@@ -104,7 +103,6 @@ func (h *PaymentHandler) Pay(c *gin.Context) {
 		return
 	}
 
-	// 3. Pozovi servis
 	transaction, err := h.paymentService.Pay(cardDetails, paymentID)
 	if err != nil {
 		log.Printf("[ERROR] Failed to process payment for PaymentID=%s: %v", paymentID, err)
@@ -112,7 +110,6 @@ func (h *PaymentHandler) Pay(c *gin.Context) {
 		return
 	}
 
-	// 4. Vrati odgovor
 	c.JSON(http.StatusOK, map[string]string{
 		"status": transaction.Status,
 	})
@@ -136,14 +133,12 @@ func (h *PaymentHandler) Pay(c *gin.Context) {
 func (h *PaymentHandler) ExternalPay(c *gin.Context) {
 	var externalRequest dto.ExternalTransactionRequestDTO
 
-	// 1. Bind JSON payload
 	if err := c.ShouldBindJSON(&externalRequest); err != nil {
 		log.Printf("[ERROR] Invalid external payment payload: %v", err)
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request format"})
 		return
 	}
 
-	// 2. Pozovi servis
 	response, err := h.paymentService.ExternalPay(externalRequest)
 	if err != nil {
 		switch response.Status {
@@ -157,6 +152,5 @@ func (h *PaymentHandler) ExternalPay(c *gin.Context) {
 		return
 	}
 
-	// 3. Vrati uspešan odgovor
 	c.JSON(http.StatusOK, response)
 }

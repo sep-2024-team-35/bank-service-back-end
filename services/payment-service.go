@@ -77,19 +77,16 @@ func (s *paymentService) Pay(
 
 	log.Printf("[DEBUG] Request PAN: %s", cardDetailsDTO.PrimaryAccountNumber)
 
-	// 1. Pronađi issuer account po PAN
 	issuerAccount, err := s.accountService.FindAccountByPAN(cardDetailsDTO.PrimaryAccountNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find issuer account: %w", err)
 	}
 
-	// 2. Pronađi payment request
 	paymentRequest, err := s.paymentRepository.GetByID(paymentRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payment request: %w", err)
 	}
 
-	// 3. Pronađi postojeću transakciju
 	transaction, err := s.transactionRepository.FindByPaymentRequestID(paymentRequest.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find transaction: %w", err)
@@ -99,36 +96,27 @@ func (s *paymentService) Pay(
 		return nil, fmt.Errorf("transaction not found")
 	}
 
-	// 4. Obradi transakciju
 	var pspResponse *dto.PSPResponseDTO
 	if issuerAccount != nil {
-		// intrabank
 		pspResponse, err = s.processIntrabankTransaction(issuerAccount, paymentRequest, transaction)
 		if err != nil {
 			return nil, fmt.Errorf("intrabank processing failed: %w", err)
 		}
 	} else {
-		// interbank
 		pspResponse, err = s.processInterbankTransaction(cardDetailsDTO, transaction, paymentRequest)
 		if err != nil {
 			return nil, fmt.Errorf("interbank processing failed: %w", err)
 		}
 	}
 
-	// 5. Vraćamo PSPResponseDTO
 	return pspResponse, nil
 }
 
-// Same banks
 func (s *paymentService) processIntrabankTransaction(
 	issuerAccount *models.Account,
 	paymentRequest *models.PaymentRequest,
 	transaction *models.Transaction,
 ) (*dto.PSPResponseDTO, error) {
-
-	// 1. Business errors up front
-
-	// 1a. Merchant lookup
 	acquirerAccount, err := s.accountService.GetMerchantAccount(
 		paymentRequest.MerchantID,
 		paymentRequest.MerchantPassword,
@@ -141,7 +129,6 @@ func (s *paymentService) processIntrabankTransaction(
 		return nil, err
 	}
 
-	// 1b. Insufficient funds
 	if !issuerAccount.Balance.GreaterThanOrEqual(transaction.Amount) {
 		transaction.Status = "FAILED"
 		if _, updErr := s.transactionRepository.Update(transaction); updErr != nil {
@@ -150,18 +137,14 @@ func (s *paymentService) processIntrabankTransaction(
 		return nil, errors.New("insufficient funds on issuer account")
 	}
 
-	// 2. All business checks passed → do atomic update of accounts + transaction
 	err = s.accountService.DB().Transaction(func(tx *gorm.DB) error {
-		// debit/credit
 		issuerAccount.Balance = issuerAccount.Balance.Sub(transaction.Amount)
 		acquirerAccount.Balance = acquirerAccount.Balance.Add(transaction.Amount)
 
-		// finalize transaction record
 		transaction.Status = "COMPLETED"
 		transaction.IssuerOrderID = generateRandomOrderID()
 		transaction.IssuerTimestamp = time.Now().Format(time.RFC3339)
 
-		// persist inside tx
 		if _, e := s.accountService.UpdateTransactional(tx, issuerAccount); e != nil {
 			return fmt.Errorf("failed to update issuer account: %w", e)
 		}
@@ -175,7 +158,6 @@ func (s *paymentService) processIntrabankTransaction(
 		return nil
 	})
 
-	// 3. If something went wrong in the DB transaction, mark it ERROR
 	if err != nil {
 		transaction.Status = "ERROR"
 		if _, updErr := s.transactionRepository.Update(transaction); updErr != nil {
@@ -184,19 +166,17 @@ func (s *paymentService) processIntrabankTransaction(
 		return nil, err
 	}
 
-	// 4. Success → kreiraj PSPResponseDTO
 	pspResponse := &dto.PSPResponseDTO{
 		Status:            transaction.Status,
-		RedirectURL:       "", // po potrebi dodaj redirect URL
+		RedirectURL:       "", // TODO add redirect url from request
 		AcquirerOrderID:   transaction.AcquirerOrderID,
 		AcquirerTimeStamp: transaction.AcquirerTimestamp,
-		PaymentID:         fmt.Sprintf("%d", transaction.ID), // ili UUID ako koristiš
+		PaymentID:         fmt.Sprintf("%d", transaction.ID),
 	}
 
 	return pspResponse, nil
 }
 
-// Different banks
 func (s *paymentService) processInterbankTransaction(
 	cardDetails dto.CardDetailsDTO,
 	transaction *models.Transaction,
@@ -277,7 +257,6 @@ func (s *paymentService) processInterbankTransaction(
 		return nil, fmt.Errorf("invalid PCC response: %+v", pccResp)
 	}
 
-	// setuj polja transakcije
 	transaction.IssuerOrderID = pccResp.IssuerOrderID
 	transaction.IssuerTimestamp = pccResp.IssuerTimestamp
 	transaction.Status = pccResp.Status
@@ -307,7 +286,6 @@ func (s *paymentService) processInterbankTransaction(
 			return nil, fmt.Errorf("transactional update failed: %w", err)
 		}
 	} else {
-		// FAILED ili ERROR
 		if _, e := s.transactionRepository.Update(transaction); e != nil {
 			return nil, fmt.Errorf("failed to update transaction for non-success PCC: %w", e)
 		}
@@ -370,7 +348,6 @@ func (s *paymentService) ExternalPay(dto dto.ExternalTransactionRequestDTO) (*dt
 
 	var transaction *models.Transaction
 
-	// 1. Pronađi issuer nalog
 	issuerAccount, err := s.accountService.FindAccountByPAN(dto.PrimaryAccountNumber)
 	if err != nil {
 		log.Printf("[ERROR] Issuer account not found for PAN=%s", dto.PrimaryAccountNumber)
@@ -379,7 +356,6 @@ func (s *paymentService) ExternalPay(dto dto.ExternalTransactionRequestDTO) (*dt
 		return buildPCCResponse(transaction), fmt.Errorf("issuer account not found")
 	}
 
-	// 2. Proveri stanje
 	if !issuerAccount.Balance.GreaterThanOrEqual(dto.Amount) {
 		log.Printf("[ERROR] Insufficient funds: Balance=%.2f, Required=%.2f",
 			issuerAccount.Balance.InexactFloat64(), dto.Amount.InexactFloat64())
@@ -388,7 +364,6 @@ func (s *paymentService) ExternalPay(dto dto.ExternalTransactionRequestDTO) (*dt
 		return buildPCCResponse(transaction), fmt.Errorf("insufficient funds")
 	}
 
-	// 3. SUCCESS → atomicno update stanja i transakcije
 	transaction = buildExternalTransaction(dto, "SUCCESS")
 	transaction.IssuerOrderID = generateRandomOrderID()
 	transaction.IssuerTimestamp = time.Now().Format(time.RFC3339)
@@ -425,7 +400,6 @@ func buildExternalTransaction(dto dto.ExternalTransactionRequestDTO, status stri
 		AcquirerOrderID:   dto.AcquirerOrderID,
 		AcquirerTimestamp: dto.AcquirerTimestamp,
 		Status:            status,
-		//PaymentRequestID:  dto.PaymentRequestID,
 	}
 }
 

@@ -1,139 +1,3 @@
-//package repositories
-//
-//import (
-//	"encoding/base64"
-//	"errors"
-//	"fmt"
-//	"github.com/sep-2024-team-35/bank-servce-back-end/config"
-//	"github.com/sep-2024-team-35/bank-servce-back-end/crypto"
-//	"github.com/sep-2024-team-35/bank-servce-back-end/models"
-//	"gorm.io/gorm"
-//	"log"
-//)
-//
-//type AccountRepository interface {
-//	Save(account *models.Account) (*models.Account, error)
-//	Update(account *models.Account) (*models.Account, error)
-//	UpdateTransactional(tx *gorm.DB, account *models.Account) (*models.Account, error)
-//	FindByMerchantID(merchantID string) (*models.Account, error)
-//	FindByPAN(pan string) (*models.Account, error)
-//	FindByMerchantIDAndPassword(merchantID string, password string) (*models.Account, error)
-//	DB() *gorm.DB
-//}
-//
-//type accountRepository struct {
-//	db *gorm.DB
-//}
-//
-//func NewAccountRepository(db *gorm.DB) AccountRepository {
-//	return &accountRepository{db: db}
-//}
-//
-////func (r *accountRepository) Save(account *models.Account) (*models.Account, error) {
-////	if err := r.db.Create(account).Error; err != nil {
-////		return nil, err
-////	}
-////	return account, nil
-////}
-//
-//func (r *accountRepository) Save(account *models.Account) (*models.Account, error) {
-//	// TODO encrypt all sensitive data
-//	// Encrypt PAN
-//	encryptedPAN, err := crypto.Encrypt(account.PrimaryAccountNumber, config.EncryptionKey)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to encrypt PAN: %w", err)
-//	}
-//	account.PrimaryAccountNumber = base64.StdEncoding.EncodeToString(encryptedPAN)
-//
-//	// Encrypt Balance (as string)
-//	//encryptedBalance, err := crypto.Encrypt(account.Balance.String(), config.EncryptionKey)
-//	//if err != nil {
-//	//	return nil, fmt.Errorf("failed to encrypt balance: %w", err)
-//	//}
-//	//account.Balance = base64.StdEncoding.EncodeToString(encryptedBalance)
-//
-//	// Save to DB
-//	if err := r.db.Create(account).Error; err != nil {
-//		return nil, err
-//	}
-//	return account, nil
-//}
-//
-//func (r *accountRepository) Update(account *models.Account) (*models.Account, error) {
-//	if err := r.db.Save(account).Error; err != nil {
-//		return nil, err
-//	}
-//	return account, nil
-//}
-//
-//func (r *accountRepository) UpdateTransactional(tx *gorm.DB, account *models.Account) (*models.Account, error) {
-//	if tx == nil {
-//		return nil, errors.New("transaction object cannot be nil")
-//	}
-//
-//	if err := tx.Model(&models.Account{}).
-//		Where("id = ?", account.ID).
-//		Updates(account).Error; err != nil {
-//		return nil, err
-//	}
-//
-//	return account, nil
-//}
-//
-//func (r *accountRepository) FindByMerchantID(merchantID string) (*models.Account, error) {
-//	var account models.Account
-//	err := r.db.First(&account, "merchant_id = ?", merchantID).Error
-//	if errors.Is(err, gorm.ErrRecordNotFound) {
-//		return nil, nil
-//	}
-//	if err != nil {
-//		return nil, err
-//	}
-//	return &account, nil
-//}
-//
-//func (r *accountRepository) FindByPAN(pan string) (*models.Account, error) {
-//	var account models.Account
-//	err := r.db.First(&account, "primary_account_number = ?", pan).Error
-//	if errors.Is(err, gorm.ErrRecordNotFound) {
-//		return nil, nil
-//	}
-//	if err != nil {
-//		return nil, err
-//	}
-//	return &account, nil
-//}
-//
-//func (r *accountRepository) FindByMerchantIDAndPassword(merchantID string, password string) (*models.Account, error) {
-//	log.Printf("[Repo][FindByMerchantIDAndPassword] Called with merchantID=%s", merchantID)
-//
-//	if r.db == nil {
-//		log.Printf("[Repo][FindByMerchantIDAndPassword][ERROR] Database connection is nil!")
-//		return nil, fmt.Errorf("database connection is nil")
-//	}
-//
-//	var account models.Account
-//	err := r.db.Where("merchant_id = ? AND merchant_password = ?", merchantID, password).First(&account).Error
-//
-//	if errors.Is(err, gorm.ErrRecordNotFound) {
-//		log.Printf("[Repo][FindByMerchantIDAndPassword] No account found for merchantID=%s", merchantID)
-//		return nil, nil
-//	}
-//	if err != nil {
-//		log.Printf("[Repo][FindByMerchantIDAndPassword][ERROR] Query failed for merchantID=%s: %v", merchantID, err)
-//		return nil, err
-//	}
-//
-//	log.Printf("[Repo][FindByMerchantIDAndPassword] Account found: ID=%s, MerchantID=%s, Balance=%.2f",
-//		account.ID.String(), account.MerchantID, account.Balance)
-//
-//	return &account, nil
-//}
-//
-//func (r *accountRepository) DB() *gorm.DB {
-//	return r.db
-//}
-
 package repositories
 
 import (
@@ -143,8 +7,10 @@ import (
 	"github.com/sep-2024-team-35/bank-servce-back-end/config"
 	"github.com/sep-2024-team-35/bank-servce-back-end/crypto"
 	"github.com/sep-2024-team-35/bank-servce-back-end/models"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"log"
+	"time"
 )
 
 type AccountRepository interface {
@@ -168,30 +34,34 @@ func NewAccountRepository(db *gorm.DB) AccountRepository {
 func encryptAccountFields(account *models.Account) error {
 	log.Printf("[Encrypt] Starting encryption for Account ID=%s", account.ID.String())
 
-	// PAN
 	if account.PrimaryAccountNumber != "" {
-		log.Printf("[Encrypt][PAN] Original value: %s", account.PrimaryAccountNumber)
-		encryptedPAN, err := crypto.Encrypt(account.PrimaryAccountNumber, config.EncryptionKey)
-		if err != nil {
-			log.Printf("[Encrypt][PAN][ERROR] Failed: %v", err)
+		if _, err := crypto.Encrypt(account.PrimaryAccountNumber, config.EncryptionKey); err != nil {
 			return fmt.Errorf("failed to encrypt PAN: %w", err)
 		}
-		encodedPAN := base64.StdEncoding.EncodeToString(encryptedPAN)
-		log.Printf("[Encrypt][PAN] Encrypted (base64): %s", encodedPAN)
-		account.PrimaryAccountNumber = encodedPAN
 	}
 
-	// CardHolderName
 	if account.CardHolderName != "" {
-		log.Printf("[Encrypt][CardHolderName] Original value: %s", account.CardHolderName)
-		encryptedName, err := crypto.Encrypt(account.CardHolderName, config.EncryptionKey)
-		if err != nil {
-			log.Printf("[Encrypt][CardHolderName][ERROR] Failed: %v", err)
+		if _, err := crypto.Encrypt(account.CardHolderName, config.EncryptionKey); err != nil {
 			return fmt.Errorf("failed to encrypt CardHolderName: %w", err)
 		}
-		encodedName := base64.StdEncoding.EncodeToString(encryptedName)
-		log.Printf("[Encrypt][CardHolderName] Encrypted (base64): %s", encodedName)
-		account.CardHolderName = encodedName
+	}
+
+	if account.Balance.GreaterThan(decimal.Zero) {
+		bStr := account.Balance.String()
+		encBal, err := crypto.Encrypt(bStr, config.EncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt Balance: %w", err)
+		}
+		account.EncryptedBalance = base64.StdEncoding.EncodeToString(encBal)
+	}
+
+	if !account.ExpirationDate.IsZero() {
+		dateStr := account.ExpirationDate.Format(time.RFC3339)
+		encDate, err := crypto.Encrypt(dateStr, config.EncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt ExpirationDate: %w", err)
+		}
+		account.EncryptedExpirationDate = base64.StdEncoding.EncodeToString(encDate)
 	}
 
 	log.Printf("[Encrypt] Finished encryption for Account ID=%s", account.ID.String())
@@ -201,37 +71,22 @@ func encryptAccountFields(account *models.Account) error {
 func decryptAccountFields(account *models.Account) error {
 	log.Printf("[Decrypt] Starting decryption for Account ID=%s", account.ID.String())
 
-	// PAN
-	if account.PrimaryAccountNumber != "" {
-		log.Printf("[Decrypt][PAN] Encrypted (base64): %s", account.PrimaryAccountNumber)
-		decodedPAN, err := base64.StdEncoding.DecodeString(account.PrimaryAccountNumber)
+	if account.EncryptedBalance != "" {
+		decoded, err := base64.StdEncoding.DecodeString(account.EncryptedBalance)
 		if err == nil {
-			decryptedPAN, derr := crypto.Decrypt(decodedPAN, config.EncryptionKey)
-			if derr == nil {
-				log.Printf("[Decrypt][PAN] Decrypted value: %s", decryptedPAN)
-				account.PrimaryAccountNumber = decryptedPAN
-			} else {
-				log.Printf("[Decrypt][PAN][ERROR] Failed: %v", derr)
+			if decrypted, derr := crypto.Decrypt(decoded, config.EncryptionKey); derr == nil {
+				account.Balance, _ = decimal.NewFromString(decrypted)
 			}
-		} else {
-			log.Printf("[Decrypt][PAN][ERROR] Base64 decode failed: %v", err)
 		}
 	}
 
-	// CardHolderName
-	if account.CardHolderName != "" {
-		log.Printf("[Decrypt][CardHolderName] Encrypted (base64): %s", account.CardHolderName)
-		decodedName, err := base64.StdEncoding.DecodeString(account.CardHolderName)
+	if account.EncryptedExpirationDate != "" {
+		decoded, err := base64.StdEncoding.DecodeString(account.EncryptedExpirationDate)
 		if err == nil {
-			decryptedName, derr := crypto.Decrypt(decodedName, config.EncryptionKey)
-			if derr == nil {
-				log.Printf("[Decrypt][CardHolderName] Decrypted value: %s", decryptedName)
-				account.CardHolderName = decryptedName
-			} else {
-				log.Printf("[Decrypt][CardHolderName][ERROR] Failed: %v", derr)
+			if decrypted, derr := crypto.Decrypt(decoded, config.EncryptionKey); derr == nil {
+				t, _ := time.Parse(time.RFC3339, decrypted)
+				account.ExpirationDate = t
 			}
-		} else {
-			log.Printf("[Decrypt][CardHolderName][ERROR] Base64 decode failed: %v", err)
 		}
 	}
 
@@ -239,18 +94,24 @@ func decryptAccountFields(account *models.Account) error {
 	return nil
 }
 
-//
-// Repository methods
-//
-
 func (r *accountRepository) Save(account *models.Account) (*models.Account, error) {
+	if account.MerchantPassword != "" {
+		hashed, err := crypto.HashPassword(account.MerchantPassword)
+		if err != nil {
+			return nil, err
+		}
+		account.MerchantPassword = hashed
+	}
+
 	if err := encryptAccountFields(account); err != nil {
 		return nil, err
 	}
 
 	if err := r.db.Create(account).Error; err != nil {
+		log.Printf("[Save][ERROR] Failed to create account: %v", err)
 		return nil, err
 	}
+	log.Printf("[Save] Account saved successfully: ID=%s", account.ID.String())
 	return account, nil
 }
 
@@ -260,8 +121,10 @@ func (r *accountRepository) Update(account *models.Account) (*models.Account, er
 	}
 
 	if err := r.db.Save(account).Error; err != nil {
+		log.Printf("[Update][ERROR] Failed to update account ID=%s: %v", account.ID.String(), err)
 		return nil, err
 	}
+	log.Printf("[Update] Account updated successfully: ID=%s", account.ID.String())
 	return account, nil
 }
 
@@ -277,9 +140,11 @@ func (r *accountRepository) UpdateTransactional(tx *gorm.DB, account *models.Acc
 	if err := tx.Model(&models.Account{}).
 		Where("id = ?", account.ID).
 		Updates(account).Error; err != nil {
+		log.Printf("[UpdateTransactional][ERROR] Failed for Account ID=%s: %v", account.ID.String(), err)
 		return nil, err
 	}
 
+	log.Printf("[UpdateTransactional] Account updated successfully: ID=%s", account.ID.String())
 	return account, nil
 }
 
@@ -287,13 +152,16 @@ func (r *accountRepository) FindByMerchantID(merchantID string) (*models.Account
 	var account models.Account
 	err := r.db.First(&account, "merchant_id = ?", merchantID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("[FindByMerchantID] No account found for merchantID=%s", merchantID)
 		return nil, nil
 	}
 	if err != nil {
+		log.Printf("[FindByMerchantID][ERROR] Query failed: %v", err)
 		return nil, err
 	}
 
 	_ = decryptAccountFields(&account)
+	log.Printf("[FindByMerchantID] Account retrieved successfully: ID=%s", account.ID.String())
 	return &account, nil
 }
 
@@ -301,41 +169,40 @@ func (r *accountRepository) FindByPAN(pan string) (*models.Account, error) {
 	var account models.Account
 	err := r.db.First(&account, "primary_account_number = ?", pan).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Printf("[FindByPAN] No account found")
 		return nil, nil
 	}
 	if err != nil {
+		log.Printf("[FindByPAN][ERROR] Query failed: %v", err)
 		return nil, err
 	}
 
 	_ = decryptAccountFields(&account)
+	log.Printf("[FindByPAN] Account retrieved successfully: ID=%s", account.ID.String())
 	return &account, nil
 }
 
 func (r *accountRepository) FindByMerchantIDAndPassword(merchantID string, password string) (*models.Account, error) {
-	log.Printf("[Repo][FindByMerchantIDAndPassword] Called with merchantID=%s", merchantID)
-
-	if r.db == nil {
-		log.Printf("[Repo][FindByMerchantIDAndPassword][ERROR] Database connection is nil!")
-		return nil, fmt.Errorf("database connection is nil")
-	}
+	log.Printf("[FindByMerchantIDAndPassword] Called for merchantID=%s", merchantID)
 
 	var account models.Account
-	err := r.db.Where("merchant_id = ? AND merchant_password = ?", merchantID, password).First(&account).Error
-
+	err := r.db.First(&account, "merchant_id = ?", merchantID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Printf("[Repo][FindByMerchantIDAndPassword] No account found for merchantID=%s", merchantID)
+		log.Printf("[FindByMerchantIDAndPassword] No account found for merchantID=%s", merchantID)
 		return nil, nil
 	}
 	if err != nil {
-		log.Printf("[Repo][FindByMerchantIDAndPassword][ERROR] Query failed for merchantID=%s: %v", merchantID, err)
+		log.Printf("[FindByMerchantIDAndPassword][ERROR] Query failed: %v", err)
 		return nil, err
 	}
 
+	if !crypto.CheckPasswordHash(account.MerchantPassword, password) {
+		log.Printf("[FindByMerchantIDAndPassword] Password mismatch for merchantID=%s", merchantID)
+		return nil, nil
+	}
+
 	_ = decryptAccountFields(&account)
-
-	log.Printf("[Repo][FindByMerchantIDAndPassword] Account found: ID=%s, MerchantID=%s, Balance=%.2f",
-		account.ID.String(), account.MerchantID, account.Balance)
-
+	log.Printf("[FindByMerchantIDAndPassword] Account retrieved successfully: ID=%s", account.ID.String())
 	return &account, nil
 }
 

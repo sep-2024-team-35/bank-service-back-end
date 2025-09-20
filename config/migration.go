@@ -11,17 +11,13 @@ func RunMigrations() {
 	if err != nil {
 		log.Fatalf("❌ Failed to get raw DB connection: %v", err)
 	}
-
-	// ❌ Uklonjen CREATE EXTENSION - nije dozvoljeno na Azure
-
-	// Drop tables ako postoje (opciono)
+	
 	_ = DB.Migrator().DropTable(
 		&models.Transaction{},
 		&models.PaymentRequest{},
 		&models.Account{},
 	)
 
-	// Automatska migracija
 	err = DB.AutoMigrate(
 		&models.Account{},
 		&models.PaymentRequest{},

@@ -16,12 +16,7 @@ func main() {
 			log.Fatalf("🔥 Panic recovered: %v", r)
 		}
 	}()
-
-	//_, err := keyvault.LoadEncryptionKey()
-	//if err != nil {
-	//	log.Fatalf("❌ Failed to load encryption key from Key Vault: %v", err)
-	//}
-
+	
 	env := os.Getenv("APP_ENV")
 	if env == "" {
 		log.Fatal("❌ APP_ENV is not set.")

@@ -35,6 +35,7 @@ func encryptAccountFields(account *models.Account) error {
 	log.Printf("[Encrypt] Starting encryption for Account ID=%s", account.ID.String())
 
 	if account.PrimaryAccountNumber != "" {
+		account.PANHash = crypto.HashPAN(account.PrimaryAccountNumber)
 		if _, err := crypto.Encrypt(account.PrimaryAccountNumber, config.EncryptionKey); err != nil {
 			return fmt.Errorf("failed to encrypt PAN: %w", err)
 		}
@@ -167,7 +168,9 @@ func (r *accountRepository) FindByMerchantID(merchantID string) (*models.Account
 
 func (r *accountRepository) FindByPAN(pan string) (*models.Account, error) {
 	var account models.Account
-	err := r.db.First(&account, "primary_account_number = ?", pan).Error
+	//err := r.db.First(&account, "primary_account_number = ?", pan).Error
+	hashed := crypto.HashPAN(pan)
+	err := r.db.First(&account, "pan_hash = ?", hashed).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Printf("[FindByPAN] No account found")
 		return nil, nil

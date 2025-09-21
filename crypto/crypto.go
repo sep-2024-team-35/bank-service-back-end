@@ -4,6 +4,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
@@ -71,4 +73,9 @@ func Decrypt(ciphertext []byte, key []byte) (string, error) {
 	}
 
 	return string(plaintext), nil
+}
+
+func HashPAN(pan string) string {
+	hash := sha256.Sum256([]byte(pan))
+	return hex.EncodeToString(hash[:])
 }

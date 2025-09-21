@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// TODO: delete
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")

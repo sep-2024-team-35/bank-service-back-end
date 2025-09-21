@@ -16,7 +16,7 @@ func main() {
 			log.Fatalf("🔥 Panic recovered: %v", r)
 		}
 	}()
-	
+
 	env := os.Getenv("APP_ENV")
 	if env == "" {
 		log.Fatal("❌ APP_ENV is not set.")
@@ -28,7 +28,6 @@ func main() {
 	}
 
 	config.LoadEncryptionKeyGlobally()
-
 	config.InitDB()
 	config.RunMigrations()
 	config.RunSeeder()

@@ -56,6 +56,7 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
+
 	log.Printf("[INFO] Received payment request: MerchantID=%s, OrderID=%s, Amount=%s",
 		paymentRequest.MerchantID, paymentRequest.MerchantOrderId, paymentRequest.Amount.String())
 
@@ -65,14 +66,15 @@ func (h *PaymentHandler) CreateRequest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create payment request"})
 		return
 	}
+
 	log.Printf("[INFO] Payment request saved: ID=%s, Amount=%s", savedRequest.ID.String(), savedRequest.Amount.String())
 
-	// TODO: ADD CardForm URL ---> is everything ok?
-	redirectURL := fmt.Sprintf("https://ebanksep-fe.azurewebsites.net/card?paymentID=%s", savedRequest.ID.String())
-	log.Printf("[INFO] Redirecting client to URL: %s", redirectURL)
-	c.Redirect(http.StatusSeeOther, redirectURL)
+	paymentURL := fmt.Sprintf("https://ebanksep-fe.azurewebsites.net/card?paymentID=%s", savedRequest.ID.String())
 
-	c.JSON(http.StatusCreated, map[string]string{"paymentRequestID": savedRequest.ID.String()})
+	c.JSON(http.StatusCreated, map[string]string{
+		"paymentUrl": paymentURL,
+		"paymentId":  savedRequest.ID.String(),
+	})
 }
 
 // Pay godoc
@@ -103,16 +105,14 @@ func (h *PaymentHandler) Pay(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.paymentService.Pay(cardDetails, paymentID)
+	pspResponse, err := h.paymentService.Pay(cardDetails, paymentID)
 	if err != nil {
 		log.Printf("[ERROR] Failed to process payment for PaymentID=%s: %v", paymentID, err)
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
-
-	c.JSON(http.StatusOK, map[string]string{
-		"status": transaction.Status,
-	})
+	
+	c.JSON(http.StatusOK, pspResponse)
 }
 
 // ExternalPay godoc

@@ -6,4 +6,5 @@ type PSPResponseDTO struct {
 	AcquirerOrderID   string `json:"acquirerOrderId"`
 	AcquirerTimeStamp string `json:"acquirerTimeStamp"`
 	PaymentID         string `json:"paymentID"`
+	MerchantOrderID   string `json:"merchantOrderId"`
 }

@@ -218,7 +218,7 @@ func (s *paymentService) processInterbankTransaction(
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Post("http://pcc-container:8081/api/transactions", "application/json", bytes.NewBuffer(payload))
+	resp, err := client.Post("https://pcc-provider-api.azurewebsites.net/api/transactions", "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		transaction.Status = "ERROR"
 		if _, e := s.transactionRepository.Update(transaction); e != nil {

@@ -2,16 +2,15 @@ package dto
 
 import (
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 type PaymentRequestDTO struct {
-	MerchantID        string          `json:"merchant_id" binding:"required"`
-	MerchantPassword  string          `json:"merchant_password" binding:"required"`
+	MerchantID        string          `json:"merchantId" binding:"required"`
+	MerchantPassword  string          `json:"merchantPassword" binding:"required"`
 	Amount            decimal.Decimal `json:"amount" binding:"required"`
-	MerchantOrderId   string          `json:"merchant_order_id" binding:"required"`
-	MerchantTimestamp time.Time       `json:"merchant_timestamp" binding:"required"`
-	SuccessUrl        string          `json:"success_url" binding:"required,url"`
-	FailedUrl         string          `json:"failed_url" binding:"required,url"`
-	ErrorUrl          string          `json:"error_url" binding:"required,url"`
+	MerchantOrderId   string          `json:"merchantOrderId" binding:"required"`
+	MerchantTimestamp string          `json:"merchantOrderTimeStamp" binding:"required"`
+	SuccessUrl        string          `json:"successUrl" binding:"required,url"`
+	FailedUrl         string          `json:"failedUrl" binding:"required,url"`
+	ErrorUrl          string          `json:"errorUrl" binding:"required,url"`
 }

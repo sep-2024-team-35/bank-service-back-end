@@ -65,6 +65,60 @@ func encryptAccountFields(account *models.Account) error {
 		account.EncryptedExpirationDate = base64.StdEncoding.EncodeToString(encDate)
 	}
 
+	if account.CCV != "" {
+		encCCV, err := crypto.Encrypt(account.CCV, config.EncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt CCV: %w", err)
+		}
+		account.CCV = base64.StdEncoding.EncodeToString(encCCV)
+	}
+
+	log.Printf("[Encrypt] Finished encryption for Account ID=%s", account.ID.String())
+	return nil
+}
+
+func encryptAccountFieldsUpdate(account *models.Account) error {
+	log.Printf("[Encrypt] Starting encryption for Account ID=%s", account.ID.String())
+
+	//if account.PrimaryAccountNumber != "" {
+	//	account.PANHash = crypto.HashPAN(account.PrimaryAccountNumber)
+	//	if _, err := crypto.Encrypt(account.PrimaryAccountNumber, config.EncryptionKey); err != nil {
+	//		return fmt.Errorf("failed to encrypt PAN: %w", err)
+	//	}
+	//}
+
+	if account.CardHolderName != "" {
+		if _, err := crypto.Encrypt(account.CardHolderName, config.EncryptionKey); err != nil {
+			return fmt.Errorf("failed to encrypt CardHolderName: %w", err)
+		}
+	}
+
+	if account.Balance.GreaterThan(decimal.Zero) {
+		bStr := account.Balance.String()
+		encBal, err := crypto.Encrypt(bStr, config.EncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt Balance: %w", err)
+		}
+		account.EncryptedBalance = base64.StdEncoding.EncodeToString(encBal)
+	}
+
+	if !account.ExpirationDate.IsZero() {
+		dateStr := account.ExpirationDate.Format(time.RFC3339)
+		encDate, err := crypto.Encrypt(dateStr, config.EncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt ExpirationDate: %w", err)
+		}
+		account.EncryptedExpirationDate = base64.StdEncoding.EncodeToString(encDate)
+	}
+
+	if account.CCV != "" {
+		encCCV, err := crypto.Encrypt(account.CCV, config.EncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt CCV: %w", err)
+		}
+		account.CCV = base64.StdEncoding.EncodeToString(encCCV)
+	}
+
 	log.Printf("[Encrypt] Finished encryption for Account ID=%s", account.ID.String())
 	return nil
 }
@@ -87,6 +141,15 @@ func decryptAccountFields(account *models.Account) error {
 			if decrypted, derr := crypto.Decrypt(decoded, config.EncryptionKey); derr == nil {
 				t, _ := time.Parse(time.RFC3339, decrypted)
 				account.ExpirationDate = t
+			}
+		}
+	}
+
+	if account.CCV != "" {
+		decoded, err := base64.StdEncoding.DecodeString(account.CCV)
+		if err == nil {
+			if decrypted, derr := crypto.Decrypt(decoded, config.EncryptionKey); derr == nil {
+				account.CCV = decrypted
 			}
 		}
 	}
@@ -117,7 +180,7 @@ func (r *accountRepository) Save(account *models.Account) (*models.Account, erro
 }
 
 func (r *accountRepository) Update(account *models.Account) (*models.Account, error) {
-	if err := encryptAccountFields(account); err != nil {
+	if err := encryptAccountFieldsUpdate(account); err != nil {
 		return nil, err
 	}
 
@@ -134,7 +197,11 @@ func (r *accountRepository) UpdateTransactional(tx *gorm.DB, account *models.Acc
 		return nil, errors.New("transaction object cannot be nil")
 	}
 
-	if err := encryptAccountFields(account); err != nil {
+	//if err := encryptAccountFields(account); err != nil {
+	//	return nil, err
+	//}
+
+	if err := encryptAccountFieldsUpdate(account); err != nil {
 		return nil, err
 	}
 
@@ -168,7 +235,7 @@ func (r *accountRepository) FindByMerchantID(merchantID string) (*models.Account
 
 func (r *accountRepository) FindByPAN(pan string) (*models.Account, error) {
 	var account models.Account
-	//err := r.db.First(&account, "primary_account_number = ?", pan).Error
+
 	hashed := crypto.HashPAN(pan)
 	err := r.db.First(&account, "pan_hash = ?", hashed).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

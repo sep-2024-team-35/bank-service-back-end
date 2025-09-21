@@ -18,6 +18,7 @@ type Account struct {
 	EncryptedBalance        string    `gorm:"column:encrypted_balance" json:"-"`
 	EncryptedExpirationDate string    `gorm:"column:encrypted_expiration_date" json:"-"`
 	PANHash                 string    `gorm:"column:pan_hash;index" json:"-"`
+	CCV                     string    `gorm:"column:ccv;" json:"ccv,omitempty"`
 
 	Balance        decimal.Decimal `gorm:"-" json:"balance,omitempty"`
 	ExpirationDate time.Time       `gorm:"-" json:"expirationDate,omitempty"`

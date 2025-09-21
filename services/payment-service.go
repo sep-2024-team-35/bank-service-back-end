@@ -9,9 +9,11 @@ import (
 	"github.com/sep-2024-team-35/bank-servce-back-end/dto"
 	"github.com/sep-2024-team-35/bank-servce-back-end/models"
 	"github.com/sep-2024-team-35/bank-servce-back-end/repositories"
+	"github.com/sep-2024-team-35/bank-servce-back-end/utils"
 	"gorm.io/gorm"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -40,11 +42,15 @@ func (s *paymentService) CreateRequest(requestDto dto.PaymentRequestDTO) (*model
 		return nil, err
 	}
 
-	request := s.mapToPaymentRequest(requestDto)
+	request, err := s.mapToPaymentRequest(requestDto)
+	if err != nil {
+		log.Printf("[ERROR] Failed to map PaymentRequestDTO to PaymentRequest: %v", err)
+		return nil, fmt.Errorf("failed to map payment request: %w", err)
+	}
 
 	var savedRequest *models.PaymentRequest
 
-	err := s.paymentRepository.DB().Transaction(func(tx *gorm.DB) error {
+	err = s.paymentRepository.DB().Transaction(func(tx *gorm.DB) error {
 		var err error
 
 		savedRequest, err = s.paymentRepository.SaveRequestTransactional(tx, request)
@@ -74,13 +80,7 @@ func (s *paymentService) Pay(
 	cardDetailsDTO dto.CardDetailsDTO,
 	paymentRequestID string,
 ) (*dto.PSPResponseDTO, error) {
-
-	log.Printf("[DEBUG] Request PAN: %s", cardDetailsDTO.PrimaryAccountNumber)
-
 	issuerAccount, err := s.accountService.FindAccountByPAN(cardDetailsDTO.PrimaryAccountNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find issuer account: %w", err)
-	}
 
 	paymentRequest, err := s.paymentRepository.GetByID(paymentRequestID)
 	if err != nil {
@@ -98,6 +98,20 @@ func (s *paymentService) Pay(
 
 	var pspResponse *dto.PSPResponseDTO
 	if issuerAccount != nil {
+		if issuerAccount.CCV != cardDetailsDTO.SecurityCode {
+			return nil, fmt.Errorf("invalid security code (CCV)")
+		}
+
+		expTime, err := time.Parse("01/06", cardDetailsDTO.ExpirationDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid expiration date format, expected MM/YY")
+		}
+
+		lastDay := time.Date(expTime.Year(), expTime.Month()+1, 0, 23, 59, 59, 0, time.UTC)
+		if time.Now().After(lastDay) {
+			return nil, fmt.Errorf("card expired")
+		}
+
 		pspResponse, err = s.processIntrabankTransaction(issuerAccount, paymentRequest, transaction)
 		if err != nil {
 			return nil, fmt.Errorf("intrabank processing failed: %w", err)
@@ -107,6 +121,17 @@ func (s *paymentService) Pay(
 		if err != nil {
 			return nil, fmt.Errorf("interbank processing failed: %w", err)
 		}
+	}
+
+	switch transaction.Status {
+	case "SUCCESS":
+		pspResponse.RedirectURL = paymentRequest.SuccessURL
+	case "FAILED":
+		pspResponse.RedirectURL = paymentRequest.FailedURL
+	case "ERROR":
+		pspResponse.RedirectURL = paymentRequest.ErrorURL
+	default:
+		pspResponse.RedirectURL = paymentRequest.ErrorURL
 	}
 
 	return pspResponse, nil
@@ -121,6 +146,7 @@ func (s *paymentService) processIntrabankTransaction(
 		paymentRequest.MerchantID,
 		paymentRequest.MerchantPassword,
 	)
+
 	if err != nil {
 		transaction.Status = "FAILED"
 		if _, updErr := s.transactionRepository.Update(transaction); updErr != nil {
@@ -172,6 +198,7 @@ func (s *paymentService) processIntrabankTransaction(
 		AcquirerOrderID:   transaction.AcquirerOrderID,
 		AcquirerTimeStamp: transaction.AcquirerTimestamp,
 		PaymentID:         fmt.Sprintf("%d", transaction.ID),
+		MerchantOrderID:   transaction.MerchantOrderID,
 	}
 
 	return pspResponse, nil
@@ -182,13 +209,11 @@ func (s *paymentService) processInterbankTransaction(
 	transaction *models.Transaction,
 	paymentRequest *models.PaymentRequest,
 ) (*dto.PSPResponseDTO, error) {
-
-	log.Printf("[DEBUG] Starting processInterbankTransaction for transaction ID: %d", transaction.ID)
-
 	if cardDetails.PrimaryAccountNumber == "" {
 		transaction.Status = "ERROR"
 		if _, e := s.transactionRepository.Update(transaction); e != nil {
-			return nil, fmt.Errorf("failed to update transaction after empty PAN: %w", e)
+			maskedPAN := maskPAN(cardDetails.PrimaryAccountNumber)
+			return nil, fmt.Errorf("failed to update transaction after empty PAN: %s", maskedPAN)
 		}
 		return nil, fmt.Errorf("primary account number is empty")
 	}
@@ -297,6 +322,7 @@ func (s *paymentService) processInterbankTransaction(
 		AcquirerOrderID:   transaction.AcquirerOrderID,
 		AcquirerTimeStamp: transaction.AcquirerTimestamp,
 		PaymentID:         fmt.Sprintf("%d", transaction.ID),
+		MerchantOrderID:   transaction.MerchantOrderID,
 	}
 
 	return pspResponse, nil
@@ -313,18 +339,23 @@ func (s *paymentService) validateMerchant(merchantID, merchantPassword string) e
 	return nil
 }
 
-func (s *paymentService) mapToPaymentRequest(dto dto.PaymentRequestDTO) *models.PaymentRequest {
+func (s *paymentService) mapToPaymentRequest(dto dto.PaymentRequestDTO) (*models.PaymentRequest, error) {
+	merchantTime, err := utils.ParseMerchantTimestamp(dto.MerchantTimestamp)
+	if err != nil {
+		return nil, fmt.Errorf("invalid merchant timestamp: %w", err)
+	}
+
 	return &models.PaymentRequest{
 		ID:                uuid.New(),
 		MerchantID:        dto.MerchantID,
 		MerchantPassword:  dto.MerchantPassword,
 		Amount:            dto.Amount,
 		MerchantOrderID:   dto.MerchantOrderId,
-		MerchantTimestamp: dto.MerchantTimestamp,
+		MerchantTimestamp: merchantTime,
 		SuccessURL:        dto.SuccessUrl,
 		FailedURL:         dto.FailedUrl,
 		ErrorURL:          dto.ErrorUrl,
-	}
+	}, nil
 }
 
 func (s *paymentService) buildTransaction(request *models.PaymentRequest) *models.Transaction {
@@ -344,16 +375,29 @@ func (s *paymentService) buildTransaction(request *models.PaymentRequest) *model
 }
 
 func (s *paymentService) ExternalPay(dto dto.ExternalTransactionRequestDTO) (*dto.PCCResponseDTO, error) {
-	log.Printf("[DEBUG] ExternalPay request: PAN=%s, Amount=%.2f", dto.PrimaryAccountNumber, dto.Amount.InexactFloat64())
-
 	var transaction *models.Transaction
 
 	issuerAccount, err := s.accountService.FindAccountByPAN(dto.PrimaryAccountNumber)
 	if err != nil {
-		log.Printf("[ERROR] Issuer account not found for PAN=%s", dto.PrimaryAccountNumber)
+		maskedPAN := maskPAN(dto.PrimaryAccountNumber)
+		log.Printf("[ERROR] Issuer account not found for PAN=%s", maskedPAN)
 		transaction = buildExternalTransaction(dto, "FAILED")
 		_, _ = s.transactionRepository.Save(transaction)
 		return buildPCCResponse(transaction), fmt.Errorf("issuer account not found")
+	}
+
+	if issuerAccount.CCV != dto.SecurityCode {
+		return nil, fmt.Errorf("invalid security code (CCV)")
+	}
+
+	expTime, err := time.Parse("01/06", dto.ExpirationDate)
+	if err != nil {
+		return nil, fmt.Errorf("invalid expiration date format, expected MM/YY")
+	}
+
+	lastDay := time.Date(expTime.Year(), expTime.Month()+1, 0, 23, 59, 59, 0, time.UTC)
+	if time.Now().After(lastDay) {
+		return nil, fmt.Errorf("card expired")
 	}
 
 	if !issuerAccount.Balance.GreaterThanOrEqual(dto.Amount) {
@@ -421,4 +465,11 @@ func buildPCCResponse(tx *models.Transaction) *dto.PCCResponseDTO {
 		IssuerOrderID:     tx.IssuerOrderID,
 		IssuerTimestamp:   tx.IssuerTimestamp,
 	}
+}
+
+func maskPAN(pan string) string {
+	if len(pan) <= 4 {
+		return "****"
+	}
+	return strings.Repeat("*", len(pan)-4) + pan[len(pan)-4:]
 }
